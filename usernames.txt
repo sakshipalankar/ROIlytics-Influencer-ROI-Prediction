@@ -1,0 +1,29 @@
+# Sample Instagram Business/Creator accounts for testing
+# One username per line (no @ prefix)
+# These must be Business or Creator accounts linked to a Facebook Page
+# Personal accounts will return an error from the Business Discovery API
+
+# Fitness / Health
+kaikifit
+blogilates
+simeonpanda
+
+# Fashion / Lifestyle
+chiaraferragni
+songofstyle
+neaborlee
+
+# Tech / Business
+mkbhd
+ijustine
+austinnotduncan
+
+# Food / Cooking
+gordonramsay
+jamieoliver
+minimalistbaker
+
+# Travel
+doyoutravel
+muaborlee
+adventurouskate
