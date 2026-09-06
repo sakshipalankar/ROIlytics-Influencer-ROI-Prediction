@@ -152,6 +152,8 @@ class DatasetStats(BaseModel):
     countries: List[str]
     category_distribution: dict
     tier_distribution: dict
+    db_engine: Optional[str] = "sqlite"
+    db_host: Optional[str] = None
 
 
 class ShortlistCompareRequest(BaseModel):

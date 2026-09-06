@@ -152,6 +152,8 @@ export interface DatasetStats {
   countries: string[];
   category_distribution: Record<string, number>;
   tier_distribution: Record<string, number>;
+  db_engine?: string;
+  db_host?: string;
 }
 
 export interface ShortlistItem extends InfluencerCard {

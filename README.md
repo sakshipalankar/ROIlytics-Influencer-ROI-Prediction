@@ -79,23 +79,24 @@ pip install -r requirements.txt
 
 ```bash
 copy .env.example .env
-# Edit .env with your Instagram API credentials:
+# Edit .env with your Instagram API credentials and optional MySQL credentials:
 #   IG_ACCESS_TOKEN=your_long_lived_token
 #   IG_USER_ID=your_business_account_id
+#   MYSQL_PASSWORD=your_mysql_root_password
 ```
 
-> **How to get these credentials:**
-> 1. Create a [Meta Developer](https://developers.facebook.com/) account
-> 2. Create a new App → type "Business"
-> 3. Add the **Instagram Graph API** product
-> 4. Convert your Instagram account to Business/Creator (Instagram app →
->    Settings → Account type), link it to a Facebook Page
-> 5. Generate a long-lived User Access Token with scopes:
->    `instagram_basic`, `pages_show_list`, `instagram_manage_insights`
->    (Graph API Explorer works fine for class projects)
-> 6. Note your linked IG Business Account ID and the access token
+### 3. MySQL Database Setup (Dual-Engine Architecture)
 
-### 3. Collect Instagram data (optional — requires API credentials)
+ROIlytics supports **MySQL 8.0/9.0+** (`roilytics_db`) as its primary relational database with automatic SQLite fallback.
+
+To initialize database schema (`database/schema.sql`) and migrate 10,500+ influencers and 600 campaigns into MySQL:
+```bash
+# Run migration tool (with optional password argument)
+python src/setup_mysql.py [your_mysql_password]
+```
+Tables created: `influencers`, `campaigns`, `users`, `shortlists`, `roi_predictions`.
+
+### 4. Collect Instagram data (optional — requires API credentials)
 
 ```bash
 python src/instagram_collector.py --usernames usernames.txt --out data/instagram_profiles_raw.csv

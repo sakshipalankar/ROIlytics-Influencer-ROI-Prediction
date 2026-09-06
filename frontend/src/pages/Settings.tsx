@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import type { Category } from '../types';
+import type { Category, DatasetStats } from '../types';
+import { getDatasetStats } from '../api/client';
 import {
   User,
   Settings as SettingsIcon,
@@ -26,6 +27,15 @@ const Settings: React.FC = () => {
   const { user, setUser, theme, toggleTheme, brandProfile, setBrandProfile } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'api' | 'security'>('profile');
+  const [dbStats, setDbStats] = useState<DatasetStats | null>(null);
+
+  useEffect(() => {
+    if (activeTab === 'api') {
+      getDatasetStats()
+        .then(data => setDbStats(data))
+        .catch(err => console.error('Failed to load dataset stats in settings', err));
+    }
+  }, [activeTab]);
 
   // Profile fields
   const [username, setUsername] = useState(user?.username || 'Campaign Manager');
@@ -456,20 +466,42 @@ const Settings: React.FC = () => {
           </div>
 
           <div className="settings-api-list">
-            <div className="settings-api-item">
-              <div className="settings-api-icon-wrap" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
-                <Database size={22} />
-              </div>
-              <div className="settings-api-info">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                  <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>
-                    Influencer Database (SQLite Engine)
-                  </span>
-                  <span className="badge badge-emerald">Connected</span>
+            <div className="settings-api-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                <div className="settings-api-icon-wrap" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                  <Database size={22} />
                 </div>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
-                  Contains <strong>10,500+ authentic creator profiles</strong> across 10 categories and 17 countries with SQLite index optimization.
-                </p>
+                <div className="settings-api-info" style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>
+                      Relational Database (MySQL 9.4 & SQLite Dual-Engine)
+                    </span>
+                    <span className="badge badge-emerald">
+                      {dbStats?.db_engine === 'mysql' ? 'MySQL Active (roilytics_db)' : 'Connected (10,500+ Profiles)'}
+                    </span>
+                    <span className="badge badge-indigo">
+                      Port 3306
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+                    Relational schema with tables: <code>influencers</code> ({dbStats?.total?.toLocaleString() || '10,500+'} profiles), <code>campaigns</code> (600 records), <code>users</code>, <code>shortlists</code>, and <code>roi_predictions</code>.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+                <div style={{ background: 'var(--bg-card)', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>MySQL Database</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}><code>roilytics_db</code> on localhost:3306</div>
+                </div>
+                <div style={{ background: 'var(--bg-card)', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Dual Engine Architecture</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}>PyMySQL + SQLite Fallback</div>
+                </div>
+                <div style={{ background: 'var(--bg-card)', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>DDL & Migration Script</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}><code>database/schema.sql</code> & <code>setup_mysql.py</code></div>
+                </div>
               </div>
             </div>
 
