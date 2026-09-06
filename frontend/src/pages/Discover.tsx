@@ -4,7 +4,7 @@ import { discoverInfluencers } from '../api/client';
 import BrandSetupForm from '../components/discover/BrandSetupForm';
 import InfluencerCardComponent from '../components/discover/InfluencerCard';
 import InfluencerDetailModal from '../components/discover/InfluencerDetailModal';
-import { TrendingUp, Sparkles } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 
 const Discover: React.FC = () => {
   const {
@@ -28,44 +28,6 @@ const Discover: React.FC = () => {
 
   return (
     <div className="animate-fade-in">
-      {/* ─── Find Influencer Section: Shifted directly below Navigation Bar ─── */}
-      <div className="find-influencer-header">
-        <div className="fih-left">
-          <div className="fih-badge">
-            <Sparkles size={13} color="#a855f7" />
-            <span>AI-Powered Influencer Discovery</span>
-          </div>
-          <h1 className="fih-title">
-            Target High-Impact <span className="page-title-gradient">Influencers</span>
-          </h1>
-          <p className="fih-subtitle">
-            Match and rank 10,500+ creator profiles using machine learning fit scoring, engagement analysis, and ROI prediction.
-          </p>
-        </div>
-
-        <div className="fih-stats">
-          <div className="fih-stat-item">
-            <span className="fih-stat-val">10,500+</span>
-            <span className="fih-stat-lbl">Real Profiles</span>
-          </div>
-          <div className="fih-stat-divider" />
-          <div className="fih-stat-item">
-            <span className="fih-stat-val">10</span>
-            <span className="fih-stat-lbl">Categories</span>
-          </div>
-          <div className="fih-stat-divider" />
-          <div className="fih-stat-item">
-            <span className="fih-stat-val">ML Fit</span>
-            <span className="fih-stat-lbl">Smart Ranking</span>
-          </div>
-          <div className="fih-stat-divider" />
-          <div className="fih-stat-item">
-            <span className="fih-stat-val">17</span>
-            <span className="fih-stat-lbl">Countries</span>
-          </div>
-        </div>
-      </div>
-
       {/* ─── Brand Setup Master Card (Full Dashboard Hub) ─── */}
       <div className="card bsh-master-card">
         <div className="card-header bsh-master-header">

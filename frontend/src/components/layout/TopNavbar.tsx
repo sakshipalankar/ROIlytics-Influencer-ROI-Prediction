@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore, pickColor } from '../../store/useAppStore';
-import { Menu, TrendingUp, LogOut, User, ChevronDown, Bookmark, Sun, Moon } from 'lucide-react';
+import { Menu, TrendingUp, LogOut, User, ChevronDown, Bookmark, Sun, Moon, HelpCircle } from 'lucide-react';
 
 const TopNavbar: React.FC = () => {
   const { user, logout, toggleSidebar, sidebarOpen, shortlist, setActivePage, activePage, theme, toggleTheme } = useAppStore();
@@ -52,9 +52,10 @@ const TopNavbar: React.FC = () => {
       {/* Center: Quick nav pills */}
       <nav className="navbar-quick-nav">
         {[
-          { id: 'discover',  label: '🔍 Discover' },
-          { id: 'shortlist', label: `📌 Shortlist${shortlist.length > 0 ? ` (${shortlist.length})` : ''}` },
-          { id: 'analytics', label: '📊 Analytics' },
+          { id: 'discover',     label: '🔍 Discover' },
+          { id: 'shortlist',    label: `📌 Shortlist${shortlist.length > 0 ? ` (${shortlist.length})` : ''}` },
+          { id: 'analytics',    label: '📊 Analytics' },
+          { id: 'how-it-works', label: '💡 How It Works' },
         ].map(item => (
           <button
             key={item.id}
@@ -137,41 +138,34 @@ const TopNavbar: React.FC = () => {
               </div>
             </div>
 
-            {/* Stats */}
-            <div className="user-dropdown-stats">
-              <div className="ud-stat">
-                <span className="ud-stat-value">{shortlist.length}</span>
-                <span className="ud-stat-label">Shortlisted</span>
-              </div>
-              <div className="ud-stat-divider" />
-              <div className="ud-stat">
-                <span className="ud-stat-value">10.5K</span>
-                <span className="ud-stat-label">Profiles</span>
-              </div>
-              <div className="ud-stat-divider" />
-              <div className="ud-stat">
-                <span className="ud-stat-value">10</span>
-                <span className="ud-stat-label">Categories</span>
-              </div>
-            </div>
-
             <div className="user-dropdown-divider" />
 
             {/* Menu items */}
             <button
+              id="user-menu-settings"
               className="user-dropdown-item"
-              onClick={() => { setActivePage('about'); setDropdownOpen(false); }}
+              onClick={() => { setActivePage('settings'); setDropdownOpen(false); }}
             >
               <User size={15} />
               <span>Profile & Settings</span>
             </button>
 
             <button
+              id="user-menu-shortlist"
               className="user-dropdown-item"
               onClick={() => { setActivePage('shortlist'); setDropdownOpen(false); }}
             >
               <Bookmark size={15} />
               <span>My Shortlist{shortlist.length > 0 && ` (${shortlist.length})`}</span>
+            </button>
+
+            <button
+              id="user-menu-howitworks"
+              className="user-dropdown-item"
+              onClick={() => { setActivePage('how-it-works'); setDropdownOpen(false); }}
+            >
+              <HelpCircle size={15} />
+              <span>How It Works</span>
             </button>
 
             <div className="user-dropdown-divider" />

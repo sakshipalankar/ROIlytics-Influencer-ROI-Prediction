@@ -1,15 +1,17 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import {
-  Search, BarChart3, Database, Bookmark, Star, X,
+  Search, BarChart3, Database, Bookmark, Star, X, HelpCircle, Settings,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { id: 'discover',  label: 'Discover',     icon: Search   },
-  { id: 'shortlist', label: 'Shortlist',    icon: Bookmark },
-  { id: 'analytics', label: 'Analytics',   icon: BarChart3},
-  { id: 'explorer',  label: 'Data Explorer',icon: Database },
-  { id: 'about',     label: 'About',        icon: Star     },
+  { id: 'discover',     label: 'Discover',        icon: Search     },
+  { id: 'shortlist',    label: 'Shortlist',       icon: Bookmark   },
+  { id: 'analytics',    label: 'Analytics',       icon: BarChart3  },
+  { id: 'explorer',     label: 'Data Explorer',   icon: Database   },
+  { id: 'how-it-works', label: 'How It Works',    icon: HelpCircle },
+  { id: 'settings',     label: 'Profile Settings',icon: Settings   },
+  { id: 'about',        label: 'About',           icon: Star       },
 ];
 
 const Sidebar: React.FC = () => {

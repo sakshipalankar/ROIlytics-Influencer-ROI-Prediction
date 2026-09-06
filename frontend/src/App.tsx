@@ -7,6 +7,8 @@ import Shortlist from './pages/Shortlist';
 import Analytics from './pages/Analytics';
 import Explorer from './pages/Explorer';
 import About from './pages/About';
+import Settings from './pages/Settings';
+import HowItWorks from './pages/HowItWorks';
 import { useAppStore } from './store/useAppStore';
 
 const PAGE_MAP: Record<string, React.FC> = {
@@ -14,6 +16,8 @@ const PAGE_MAP: Record<string, React.FC> = {
   shortlist: Shortlist,
   analytics: Analytics,
   explorer: Explorer,
+  'how-it-works': HowItWorks,
+  settings: Settings,
   about: About,
 };
 

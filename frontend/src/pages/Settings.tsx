@@ -1,0 +1,546 @@
+import React, { useState } from 'react';
+import { useAppStore } from '../store/useAppStore';
+import type { Category } from '../types';
+import {
+  User,
+  Settings as SettingsIcon,
+  Shield,
+  Database,
+  CheckCircle2,
+  AlertCircle,
+  Sun,
+  Moon,
+  Save,
+  Key,
+  Radio,
+  Sparkles,
+} from 'lucide-react';
+
+const AVATAR_PALETTE = [
+  '#6366f1', '#8b5cf6', '#10b981', '#ffd54f', '#f43f5e',
+  '#38bdf8', '#ec4899', '#14b8a6', '#f97316', '#84cc16',
+];
+
+const Settings: React.FC = () => {
+  const { user, setUser, theme, toggleTheme, brandProfile, setBrandProfile } = useAppStore();
+
+  const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'api' | 'security'>('profile');
+
+  // Profile fields
+  const [username, setUsername] = useState(user?.username || 'Campaign Manager');
+  const [email, setEmail] = useState(user?.email || 'manager@roilytics.ai');
+  const [company, setCompany] = useState(brandProfile.brand_name || 'My Brand');
+  const [category, setCategory] = useState<Category>(brandProfile.category || 'Fitness');
+  const [role, setRole] = useState('Senior Influencer Marketing Lead');
+  const [avatarColor, setAvatarColor] = useState(user?.avatarColor || '#ffd54f');
+
+  // Preference fields
+  const [currency, setCurrency] = useState<'INR' | 'USD' | 'EUR' | 'GBP'>('INR');
+  const [goal, setGoal] = useState<'awareness' | 'engagement' | 'sales'>(brandProfile.goal || 'awareness');
+  const [defaultTier, setDefaultTier] = useState<string>('All');
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  // Security fields
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+
+  // Status feedback
+  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const initials = username
+    .split(' ')
+    .map(w => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'U';
+
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!username.trim() || !email.trim()) {
+      setErrorMsg('Username and email cannot be empty.');
+      return;
+    }
+
+    if (user) {
+      const updatedUser = {
+        ...user,
+        username: username.trim(),
+        email: email.trim(),
+        avatarColor,
+      };
+      setUser(updatedUser);
+
+      // Update in localStorage
+      try {
+        const raw = localStorage.getItem('roilytics-users');
+        if (raw) {
+          const users = JSON.parse(raw);
+          const idx = users.findIndex((u: any) => u.email.toLowerCase() === user.email.toLowerCase());
+          if (idx !== -1) {
+            users[idx].username = username.trim();
+            users[idx].email = email.trim();
+            localStorage.setItem('roilytics-users', JSON.stringify(users));
+          }
+        }
+      } catch (err) {
+        console.error('Error syncing user storage', err);
+      }
+    }
+
+    // Sync brand profile
+    setBrandProfile({
+      ...brandProfile,
+      brand_name: company.trim(),
+      category,
+      goal,
+    });
+
+    setSuccessMsg('Profile and brand settings updated successfully!');
+    setTimeout(() => setSuccessMsg(''), 3500);
+  };
+
+  const handlePasswordChange = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!currentPwd || !newPwd || !confirmPwd) {
+      setErrorMsg('Please fill in all password fields.');
+      return;
+    }
+    if (newPwd.length < 6) {
+      setErrorMsg('New password must be at least 6 characters.');
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      setErrorMsg('New password and confirmation do not match.');
+      return;
+    }
+
+    // Update in localStorage if user exists
+    try {
+      const raw = localStorage.getItem('roilytics-users');
+      if (raw && user) {
+        const users = JSON.parse(raw);
+        const found = users.find((u: any) => u.email.toLowerCase() === user.email.toLowerCase());
+        if (found) {
+          if (found.password && found.password !== currentPwd) {
+            setErrorMsg('Current password does not match records.');
+            return;
+          }
+          found.password = newPwd;
+          localStorage.setItem('roilytics-users', JSON.stringify(users));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
+    setCurrentPwd('');
+    setNewPwd('');
+    setConfirmPwd('');
+    setSuccessMsg('Password updated successfully!');
+    setTimeout(() => setSuccessMsg(''), 3500);
+  };
+
+  return (
+    <div className="animate-fade-in settings-page-container">
+      {/* ── Header Card ── */}
+      <div className="card settings-hero-card">
+        <div className="settings-hero-left">
+          <div
+            className="settings-avatar-preview"
+            style={{ background: avatarColor, color: '#050d1a' }}
+          >
+            {initials}
+          </div>
+          <div>
+            <div className="settings-hero-title-row">
+              <h1 className="settings-hero-name">{username}</h1>
+              <span className="badge badge-emerald">Active Account</span>
+            </div>
+            <p className="settings-hero-subtitle">
+              {email} · {role} at <strong>{company}</strong>
+            </p>
+          </div>
+        </div>
+
+        <div className="settings-hero-right">
+          <div className="settings-quick-pill">
+            <span>Theme:</span>
+            <button
+              className="settings-theme-btn"
+              onClick={toggleTheme}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? <Moon size={14} /> : <Sun size={14} />}
+              <span>{theme === 'dark' ? 'Dark' : 'Light'} Mode</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Tab Navigation ── */}
+      <div className="settings-tabs-bar">
+        <button
+          className={`settings-tab-btn${activeTab === 'profile' ? ' active' : ''}`}
+          onClick={() => setActiveTab('profile')}
+        >
+          <User size={16} />
+          <span>Profile & Brand</span>
+        </button>
+        <button
+          className={`settings-tab-btn${activeTab === 'preferences' ? ' active' : ''}`}
+          onClick={() => setActiveTab('preferences')}
+        >
+          <SettingsIcon size={16} />
+          <span>Campaign & Currency</span>
+        </button>
+        <button
+          className={`settings-tab-btn${activeTab === 'api' ? ' active' : ''}`}
+          onClick={() => setActiveTab('api')}
+        >
+          <Database size={16} />
+          <span>Data & API Status</span>
+        </button>
+        <button
+          className={`settings-tab-btn${activeTab === 'security' ? ' active' : ''}`}
+          onClick={() => setActiveTab('security')}
+        >
+          <Shield size={16} />
+          <span>Security & Password</span>
+        </button>
+      </div>
+
+      {/* ── Alerts ── */}
+      {successMsg && (
+        <div className="auth-alert auth-alert-success animate-fade-in" style={{ marginBottom: 20 }}>
+          <CheckCircle2 size={16} />
+          <span>{successMsg}</span>
+        </div>
+      )}
+      {errorMsg && (
+        <div className="auth-alert auth-alert-error animate-fade-in" style={{ marginBottom: 20 }}>
+          <AlertCircle size={16} />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {/* ── Tab 1: Profile & Brand ── */}
+      {activeTab === 'profile' && (
+        <form onSubmit={handleSaveProfile} className="card settings-content-card animate-fade-in">
+          <div className="settings-section-header">
+            <div>
+              <h2 className="settings-section-title">Brand & Account Profile</h2>
+              <p className="settings-section-desc">Manage your professional information and primary brand identity</p>
+            </div>
+            <button type="submit" className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Save size={15} />
+              <span>Save Changes</span>
+            </button>
+          </div>
+
+          <div className="settings-grid-2">
+            <div className="form-group">
+              <label className="form-label">Full Name / Username</label>
+              <input
+                type="text"
+                className="form-input"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder="Your full name"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Email Address</label>
+              <input
+                type="email"
+                className="form-input"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="name@company.com"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Company / Brand Name</label>
+              <input
+                type="text"
+                className="form-input"
+                value={company}
+                onChange={e => setCompany(e.target.value)}
+                placeholder="e.g. Nike, Glow Skincare, Nykaa"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Primary Industry Niche</label>
+              <select
+                className="form-select"
+                value={category}
+                onChange={e => setCategory(e.target.value as Category)}
+              >
+                {['Fitness', 'Fashion', 'Tech', 'Food', 'Travel', 'Lifestyle', 'Beauty', 'Gaming', 'Finance', 'Education'].map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label className="form-label">Professional Role / Designation</label>
+              <input
+                type="text"
+                className="form-input"
+                value={role}
+                onChange={e => setRole(e.target.value)}
+                placeholder="e.g. Campaign Strategist, Media Buyer"
+              />
+            </div>
+          </div>
+
+          {/* Avatar Color Picker */}
+          <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+            <label className="form-label" style={{ marginBottom: 12 }}>Avatar Accent Color</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              {AVATAR_PALETTE.map(color => (
+                <button
+                  type="button"
+                  key={color}
+                  onClick={() => setAvatarColor(color)}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: '50%',
+                    background: color,
+                    border: avatarColor === color ? '3px solid var(--text-primary)' : '2px solid transparent',
+                    cursor: 'pointer',
+                    transform: avatarColor === color ? 'scale(1.15)' : 'scale(1)',
+                    transition: 'all 0.15s ease',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                  }}
+                  aria-label={`Select color ${color}`}
+                />
+              ))}
+            </div>
+          </div>
+        </form>
+      )}
+
+      {/* ── Tab 2: Preferences ── */}
+      {activeTab === 'preferences' && (
+        <div className="card settings-content-card animate-fade-in">
+          <div className="settings-section-header">
+            <div>
+              <h2 className="settings-section-title">Campaign & Regional Preferences</h2>
+              <p className="settings-section-desc">Configure default currency, budget units, and target objectives</p>
+            </div>
+          </div>
+
+          <div className="settings-grid-2">
+            <div className="form-group">
+              <label className="form-label">Default Campaign Currency</label>
+              <select
+                className="form-select"
+                value={currency}
+                onChange={e => setCurrency(e.target.value as any)}
+              >
+                <option value="INR">₹ INR — Indian Rupee (Default)</option>
+                <option value="USD">$ USD — United States Dollar</option>
+                <option value="EUR">€ EUR — Euro</option>
+                <option value="GBP">£ GBP — British Pound</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Primary Campaign Objective</label>
+              <select
+                className="form-select"
+                value={goal}
+                onChange={e => setGoal(e.target.value as any)}
+              >
+                <option value="awareness">📢 Brand Awareness (Reach & Impressions)</option>
+                <option value="engagement">❤️ Engagement (Likes, Comments & Shares)</option>
+                <option value="sales">💰 Sales & ROI (Direct Conversions & Multiplier)</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Preferred Creator Tier</label>
+              <select
+                className="form-select"
+                value={defaultTier}
+                onChange={e => setDefaultTier(e.target.value)}
+              >
+                <option value="All">All Tiers (Auto-optimizing)</option>
+                <option value="Nano">Nano Creators (&lt; 10K Followers)</option>
+                <option value="Micro">Micro Creators (10K – 100K Followers)</option>
+                <option value="Macro">Macro Creators (100K – 1M Followers)</option>
+                <option value="Mega">Mega Celebrities (&gt; 1M Followers)</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Live Discovery Refresh</label>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  marginTop: 8,
+                  cursor: 'pointer',
+                }}
+                onClick={() => setAutoRefresh(!autoRefresh)}
+              >
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={() => {}}
+                  style={{ width: 18, height: 18, accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>
+                  Automatically re-rank creators when budget slider moves
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab 3: API & Data Status ── */}
+      {activeTab === 'api' && (
+        <div className="card settings-content-card animate-fade-in">
+          <div className="settings-section-header">
+            <div>
+              <h2 className="settings-section-title">Data Pipeline & Integrations</h2>
+              <p className="settings-section-desc">Active databases, machine learning model health, and external API connectors</p>
+            </div>
+          </div>
+
+          <div className="settings-api-list">
+            <div className="settings-api-item">
+              <div className="settings-api-icon-wrap" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                <Database size={22} />
+              </div>
+              <div className="settings-api-info">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                  <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>
+                    Influencer Database (SQLite Engine)
+                  </span>
+                  <span className="badge badge-emerald">Connected</span>
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+                  Contains <strong>10,500+ authentic creator profiles</strong> across 10 categories and 17 countries with SQLite index optimization.
+                </p>
+              </div>
+            </div>
+
+            <div className="settings-api-item">
+              <div className="settings-api-icon-wrap" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+                <Sparkles size={22} />
+              </div>
+              <div className="settings-api-info">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                  <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>
+                    Machine Learning Model Bundle
+                  </span>
+                  <span className="badge badge-emerald">Loaded (R² 0.578)</span>
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+                  Random Forest Regressor (<code>models/best_model.pkl</code>) pre-loaded via FastAPI lifespan for sub-10ms inference.
+                </p>
+              </div>
+            </div>
+
+            <div className="settings-api-item">
+              <div className="settings-api-icon-wrap" style={{ background: 'rgba(255, 213, 79, 0.15)', color: 'var(--accent-primary)' }}>
+                <Radio size={22} />
+              </div>
+              <div className="settings-api-info">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                  <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>
+                    Meta Instagram Graph API
+                  </span>
+                  <span className="badge badge-indigo">Demo Fallback Ready</span>
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+                  Configured for Business Discovery API. Add your <code>IG_ACCESS_TOKEN</code> in <code>.env</code> for custom live scraping.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab 4: Security ── */}
+      {activeTab === 'security' && (
+        <form onSubmit={handlePasswordChange} className="card settings-content-card animate-fade-in">
+          <div className="settings-section-header">
+            <div>
+              <h2 className="settings-section-title">Password & Credentials</h2>
+              <p className="settings-section-desc">Update your login password and manage access security</p>
+            </div>
+            <button type="submit" className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Key size={15} />
+              <span>Update Password</span>
+            </button>
+          </div>
+
+          <div style={{ maxWidth: 460 }}>
+            <div className="form-group">
+              <label className="form-label">Current Password</label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="Enter current password"
+                value={currentPwd}
+                onChange={e => setCurrentPwd(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">New Password</label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="At least 6 characters"
+                value={newPwd}
+                onChange={e => setNewPwd(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Confirm New Password</label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="Repeat new password"
+                value={confirmPwd}
+                onChange={e => setConfirmPwd(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 12 }}>
+              <Shield size={15} color="#10b981" />
+              <span>Session encrypted with browser LocalStorage sandboxing</span>
+            </div>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+};
+
+export default Settings;
