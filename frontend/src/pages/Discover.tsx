@@ -36,10 +36,10 @@ const Discover: React.FC = () => {
             <span>AI-Powered Influencer Discovery</span>
           </div>
           <h1 className="fih-title">
-            Find Your Perfect <span className="page-title-gradient">Influencers</span>
+            Target High-Impact <span className="page-title-gradient">Influencers</span>
           </h1>
           <p className="fih-subtitle">
-            Match and rank 10,500+ Instagram profiles using machine learning fit scoring, engagement analysis, and ROI prediction.
+            Match and rank 10,500+ creator profiles using machine learning fit scoring, engagement analysis, and ROI prediction.
           </p>
         </div>
 

@@ -1,6 +1,21 @@
 import React, { useState } from 'react';
 import { useAppStore, pickColor } from '../store/useAppStore';
-import { TrendingUp, Eye, EyeOff, CheckCircle, AlertCircle, Sun, Moon } from 'lucide-react';
+import {
+  TrendingUp,
+  Eye,
+  EyeOff,
+  CheckCircle,
+  AlertCircle,
+  Sun,
+  Moon,
+  Sparkles,
+  CheckCircle2,
+  Target,
+  Calculator,
+  ShieldCheck,
+  Heart,
+  ThumbsUp,
+} from 'lucide-react';
 
 /* ── Simple local "auth" — stores in zustand/localStorage ── */
 
@@ -155,7 +170,7 @@ const LoginPage: React.FC = () => {
         </span>
       </button>
 
-      {/* Left panel — branding */}
+      {/* Left panel — branding & platform intelligence */}
       <div className="auth-left">
         <div className="auth-brand">
           <div className="auth-logo">
@@ -165,18 +180,43 @@ const LoginPage: React.FC = () => {
         </div>
 
         <div className="auth-hero-text">
-          <h2>Find your perfect<br />influencer match</h2>
+          <div className="auth-hero-badge">
+            <Sparkles size={13} />
+            <span>AI-Driven Creator Intelligence</span>
+          </div>
+          <h2>
+            Connect with Top Influencers,<br />
+            Ignite <span className="auth-highlight">High-Impact ROI.</span>
+          </h2>
           <p>
-            AI-powered influencer discovery platform. Search 10,500+ profiles,
-            score them by fit, and predict campaign ROI — all in seconds.
+            Data-backed creator discovery and predictive ROI modeling. Evaluate authentic audience engagement,
+            simulate campaign budgets, and forecast returns with machine learning precision.
           </p>
         </div>
 
+        {/* Feature checklist inspired by reference design */}
+        <div className="auth-features-pills">
+          <div className="auth-feature-pill">
+            <CheckCircle2 size={15} className="pill-check-icon" />
+            <span>Creator Identification</span>
+          </div>
+          <div className="auth-feature-pill">
+            <CheckCircle2 size={15} className="pill-check-icon" />
+            <span>Strategy & Planning</span>
+          </div>
+          <div className="auth-feature-pill">
+            <CheckCircle2 size={15} className="pill-check-icon" />
+            <span>Predictive ROI Analysis</span>
+          </div>
+        </div>
+
+        {/* High-impact platform stats */}
         <div className="auth-stats-row">
           {[
             { value: '10,500+', label: 'Influencer Profiles' },
             { value: '10',      label: 'Categories' },
             { value: '17',      label: 'Countries' },
+            { value: '3.4x',    label: 'Avg Predicted ROI' },
           ].map(s => (
             <div className="auth-stat" key={s.label}>
               <div className="auth-stat-value">{s.value}</div>
@@ -185,36 +225,77 @@ const LoginPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Decorative influencer cards */}
-        <div className="auth-deco-cards">
-          {[
-            { name: '@fitness_guru_',  score: 94, tier: 'Micro', er: '7.2%', color: '#10b981' },
-            { name: '@tech_visionary', score: 87, tier: 'Macro', er: '4.1%', color: 'var(--accent-primary)' },
-            { name: '@beauty.world',   score: 81, tier: 'Nano',  er: '9.8%', color: '#f43f5e' },
-          ].map((c, i) => (
-            <div className="auth-deco-card" key={c.name} style={{ animationDelay: `${i * 0.15}s` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: '50%',
-                  background: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 14, fontWeight: 800, color: 'var(--bg-base)',
-                }}>
-                  {c.name[1].toUpperCase()}
-                </div>
-                <div>
-                  <div className="auth-deco-name">{c.name}</div>
-                  <div className="auth-deco-meta">{c.tier} · ER {c.er}</div>
-                </div>
-              </div>
-              <div className="auth-deco-score" style={{
-                background: c.color + '22',
-                color: c.color,
-                border: `1px solid ${c.color}55`,
-              }}>
-                {c.score}/100
-              </div>
+        {/* Project Capability & Intelligence Cards (Replaced dummy handles) */}
+        <div className="auth-cap-cards">
+          <div className="auth-cap-card" style={{ animationDelay: '0.1s' }}>
+            <div className="auth-cap-icon" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+              <Target size={20} />
             </div>
-          ))}
+            <div className="auth-cap-content">
+              <div className="auth-cap-header">
+                <span className="auth-cap-title">Creator Identification & Fit</span>
+                <span className="auth-cap-badge" style={{ background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+                  94% Avg Match
+                </span>
+              </div>
+              <p className="auth-cap-desc">
+                Algorithmic fit scoring based on audience reach, niche relevance, and authentic engagement quality.
+              </p>
+            </div>
+          </div>
+
+          <div className="auth-cap-card" style={{ animationDelay: '0.2s' }}>
+            <div className="auth-cap-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+              <TrendingUp size={20} />
+            </div>
+            <div className="auth-cap-content">
+              <div className="auth-cap-header">
+                <span className="auth-cap-title">Predictive ROI & Revenue Modeling</span>
+                <span className="auth-cap-badge" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                  3.8x Projected Multiplier
+                </span>
+              </div>
+              <p className="auth-cap-desc">
+                Random Forest & XGBoost models forecast campaign revenue multipliers and profit margins before spending.
+              </p>
+            </div>
+          </div>
+
+          <div className="auth-cap-card" style={{ animationDelay: '0.3s' }}>
+            <div className="auth-cap-icon" style={{ background: 'rgba(255, 213, 79, 0.15)', color: 'var(--accent-primary)' }}>
+              <Calculator size={20} />
+            </div>
+            <div className="auth-cap-content">
+              <div className="auth-cap-header">
+                <span className="auth-cap-title">Strategy & Budget Simulation</span>
+                <span className="auth-cap-badge" style={{ background: 'rgba(255, 213, 79, 0.12)', color: 'var(--accent-primary)', border: '1px solid rgba(255, 213, 79, 0.3)' }}>
+                  Dynamic ₹ / $ Curves
+                </span>
+              </div>
+              <p className="auth-cap-desc">
+                Interactive sensitivity curves calculating the optimal budget sweet-spot across Nano, Micro, and Macro tiers.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Social & engagement floating ecosystem indicators */}
+        <div className="auth-ecosystem-bar">
+          <span className="auth-ecosystem-label">Audience Signals:</span>
+          <div className="auth-ecosystem-tags">
+            <span className="auth-ecosystem-tag">
+              <Heart size={12} color="#f43f5e" fill="#f43f5e" />
+              <span>Real Likes Quality</span>
+            </span>
+            <span className="auth-ecosystem-tag">
+              <ThumbsUp size={12} color="#38bdf8" />
+              <span>Verified ER Benchmarks</span>
+            </span>
+            <span className="auth-ecosystem-tag">
+              <ShieldCheck size={12} color="#10b981" />
+              <span>Fraud Filtering</span>
+            </span>
+          </div>
         </div>
       </div>
 
