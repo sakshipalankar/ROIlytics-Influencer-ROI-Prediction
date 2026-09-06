@@ -55,6 +55,8 @@ export const GoogleIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
   </svg>
 );
 
+export const DEFAULT_GOOGLE_CLIENT_ID = '160392107540-5rs36s2jepaevla3220669qs3sq1dep9.apps.googleusercontent.com';
+
 const DEFAULT_USERS: StoredUser[] = [
   { username: 'Alex Rivers', email: 'demo@roilytics.ai', password: 'Password123!' },
   { username: 'Sarah Chen', email: 'sarah.chen@glowbeauty.com', password: 'Password123!' },
@@ -113,7 +115,7 @@ const LoginPage: React.FC = () => {
   // Google Real-Time OAuth states
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [googleClientIdInput, setGoogleClientIdInput] = useState(
-    () => localStorage.getItem('roilytics_google_client_id') || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || ''
+    () => localStorage.getItem('roilytics_google_client_id') || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID
   );
   const [copiedOrigin, setCopiedOrigin] = useState(false);
   const [googleVerifying, setGoogleVerifying] = useState(false);
@@ -130,7 +132,7 @@ const LoginPage: React.FC = () => {
 
   // Google One Tap prompt (shows real signed-in Google accounts on page load if Client ID is configured)
   useEffect(() => {
-    const activeClientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || localStorage.getItem('roilytics_google_client_id');
+    const activeClientId = localStorage.getItem('roilytics_google_client_id') || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID;
     if (activeClientId && activeClientId.trim().length > 15 && (window as any).google?.accounts?.id) {
       try {
         (window as any).google.accounts.id.initialize({
@@ -279,9 +281,13 @@ const LoginPage: React.FC = () => {
 
   const handleGoogleClick = () => {
     setError(''); setSuccess('');
-    const stored = localStorage.getItem('roilytics_google_client_id') || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || googleClientIdInput;
-    if (stored && stored.trim().length > 15) {
-      launchGoogleRealAuth(stored);
+    const activeId =
+      localStorage.getItem('roilytics_google_client_id') ||
+      (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID ||
+      googleClientIdInput ||
+      DEFAULT_GOOGLE_CLIENT_ID;
+    if (activeId && activeId.trim().length > 15) {
+      launchGoogleRealAuth(activeId);
     } else {
       setShowGoogleModal(true);
     }

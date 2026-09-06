@@ -52,7 +52,7 @@ const Settings: React.FC = () => {
 
   // Google OAuth state
   const [googleClientId, setGoogleClientId] = useState(
-    () => localStorage.getItem('roilytics_google_client_id') || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || ''
+    () => localStorage.getItem('roilytics_google_client_id') || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '160392107540-5rs36s2jepaevla3220669qs3sq1dep9.apps.googleusercontent.com'
   );
   const [googleSaveMsg, setGoogleSaveMsg] = useState('');
 
