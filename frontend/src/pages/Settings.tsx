@@ -89,9 +89,14 @@ const Settings: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
 
   // Google OAuth state
-  const [googleClientId, setGoogleClientId] = useState(
-    () => localStorage.getItem('roilytics_google_client_id') || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '160392107540-5rs36s2jepaevla3220669qs3sq1dep9.apps.googleusercontent.com'
-  );
+  const [googleClientId, setGoogleClientId] = useState(() => {
+    const saved = localStorage.getItem('roilytics_google_client_id');
+    if (!saved || saved.includes('5rs36s')) {
+      localStorage.setItem('roilytics_google_client_id', '160392107540-mnoftloha9qmrf54ppbqrtc6mc1hpkrm.apps.googleusercontent.com');
+      return '160392107540-mnoftloha9qmrf54ppbqrtc6mc1hpkrm.apps.googleusercontent.com';
+    }
+    return saved;
+  });
   const [googleSaveMsg, setGoogleSaveMsg] = useState('');
 
   const handleSaveGoogleClientId = (e: React.FormEvent) => {

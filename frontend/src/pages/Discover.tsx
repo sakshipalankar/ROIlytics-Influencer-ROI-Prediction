@@ -13,14 +13,20 @@ const Discover: React.FC = () => {
     shortlist, setActivePage
   } = useAppStore();
 
+  const [searchError, setSearchError] = React.useState<string | null>(null);
+  const [hasSearched, setHasSearched] = React.useState(false);
+
   const handleSearch = useCallback(async () => {
     setIsDiscovering(true);
+    setSearchError(null);
+    setHasSearched(true);
     setDiscoveryResults([]);
     try {
       const resp = await discoverInfluencers({ ...brandProfile, limit: 30 });
-      setDiscoveryResults(resp.influencers);
-    } catch (err) {
+      setDiscoveryResults(resp.influencers || []);
+    } catch (err: any) {
       console.error('Discovery failed:', err);
+      setSearchError(err?.response?.data?.detail || err?.message || 'Failed to score influencers.');
     } finally {
       setIsDiscovering(false);
     }
@@ -42,6 +48,27 @@ const Discover: React.FC = () => {
           <BrandSetupForm onSearch={handleSearch} />
         </div>
       </div>
+
+      {/* Error alert */}
+      {searchError && (
+        <div className="auth-alert auth-alert-error" style={{ marginTop: 16 }}>
+          <span>⚠️ {searchError}</span>
+        </div>
+      )}
+
+      {/* Empty results after search */}
+      {hasSearched && !isDiscovering && !searchError && discoveryResults.length === 0 && (
+        <div className="card" style={{ textAlign: 'center', padding: '48px 24px', marginTop: 24 }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
+          <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>No Influencers Matched All Filters</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13, maxWidth: 440, margin: '0 auto 16px' }}>
+            Try setting <strong>Country</strong> or <strong>Follower Tier</strong> to <em>"All"</em> to see top performers across all tiers.
+          </p>
+          <button className="btn btn-primary btn-sm" onClick={handleSearch}>
+            Refresh Results
+          </button>
+        </div>
+      )}
 
       {/* ─── Results Section (Appears when searching or results exist) ─── */}
       {(isDiscovering || discoveryResults.length > 0) && (

@@ -66,16 +66,21 @@ def init_database_and_tables(conn):
         cur.execute(f"CREATE DATABASE IF NOT EXISTS `{MYSQL_DATABASE}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
         cur.execute(f"USE `{MYSQL_DATABASE}`;")
 
-        with open(SCHEMA_FILE, "r", encoding="utf-8") as f:
+        with open(SCHEMA_FILE, "r", encoding="utf-8-sig") as f:
             schema_sql = f.read()
 
         # Split and execute statements
         statements = [stmt.strip() for stmt in schema_sql.split(";") if stmt.strip()]
         for stmt in statements:
-            # Skip USE or CREATE DATABASE since already handled
-            if stmt.upper().startswith("CREATE DATABASE") or stmt.upper().startswith("USE "):
+            # Filter out comment-only lines
+            lines = [line for line in stmt.splitlines() if not line.strip().startswith("--")]
+            clean_stmt = "\n".join(lines).strip()
+            if not clean_stmt:
                 continue
-            cur.execute(stmt)
+            # Skip USE or CREATE DATABASE since already handled
+            if clean_stmt.upper().startswith("CREATE DATABASE") or clean_stmt.upper().startswith("USE "):
+                continue
+            cur.execute(clean_stmt)
 
     conn.commit()
     print("All tables & indexes created successfully in MySQL!")
@@ -269,8 +274,19 @@ def main():
         cur.execute(f"SELECT COUNT(*) AS c FROM `{MYSQL_DATABASE}`.`users`;")
         usr_count = cur.fetchone()["c"]
 
+    # Update .env if password is provided
+    if pwd_used is not None:
+        env_file = PROJECT_ROOT / ".env"
+        if env_file.exists():
+            with open(env_file, "r", encoding="utf-8") as f:
+                content = f.read()
+            import re
+            content = re.sub(r"MYSQL_PASSWORD=.*", f"MYSQL_PASSWORD={pwd_used}", content)
+            with open(env_file, "w", encoding="utf-8") as f:
+                f.write(content)
+
     print("\n" + "=" * 55)
-    print("🎉 ROIlytics MySQL Database Setup Completed Successfully!")
+    print("SUCCESS: ROIlytics MySQL Database Setup Completed Successfully!")
     print(f"Database:        {MYSQL_DATABASE}")
     print(f"Influencers:     {inf_count:,} records")
     print(f"Campaigns:       {cmp_count:,} records")

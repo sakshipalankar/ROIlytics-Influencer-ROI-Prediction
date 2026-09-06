@@ -56,7 +56,7 @@ export const GoogleIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
   </svg>
 );
 
-export const DEFAULT_GOOGLE_CLIENT_ID = '160392107540-5rs36s2jepaevla3220669qs3sq1dep9.apps.googleusercontent.com';
+export const DEFAULT_GOOGLE_CLIENT_ID = '160392107540-mnoftloha9qmrf54ppbqrtc6mc1hpkrm.apps.googleusercontent.com';
 
 const DEFAULT_USERS: StoredUser[] = [
   { username: 'Alex Rivers', email: 'demo@roilytics.ai', password: 'Password123!' },
@@ -115,9 +115,14 @@ const LoginPage: React.FC = () => {
 
   // Google Real-Time OAuth states
   const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [googleClientIdInput, setGoogleClientIdInput] = useState(
-    () => localStorage.getItem('roilytics_google_client_id') || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID
-  );
+  const [googleClientIdInput, setGoogleClientIdInput] = useState(() => {
+    const saved = localStorage.getItem('roilytics_google_client_id');
+    if (!saved || saved.includes('5rs36s')) {
+      localStorage.setItem('roilytics_google_client_id', DEFAULT_GOOGLE_CLIENT_ID);
+      return DEFAULT_GOOGLE_CLIENT_ID;
+    }
+    return saved;
+  });
   const [copiedOrigin, setCopiedOrigin] = useState(false);
   const [googleVerifying, setGoogleVerifying] = useState(false);
   const [verifyingMsg, setVerifyingMsg] = useState('Connecting to accounts.google.com…');
@@ -312,26 +317,7 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const handleInstantDemoGoogle = async () => {
-    try {
-      await googleAuthSync({
-        email: 'alex.rivers@gmail.com',
-        name: 'Alex Rivers',
-        picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-      });
-    } catch (err) {
-      console.warn('Google demo DB sync error:', err);
-    }
-    setUser({
-      username: 'Alex Rivers',
-      email: 'alex.rivers@gmail.com',
-      avatarColor: '#4285F4',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-      joinedAt: new Date().toISOString(),
-      provider: 'google',
-    });
-    setShowGoogleModal(false);
-  };
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -668,7 +654,7 @@ const LoginPage: React.FC = () => {
                 <p className="auth-form-subtitle">Sign in to your ROIlytics account</p>
               </div>
 
-              {/* Google Sign In Button */}
+              {/* Single Clean Google Sign In Button */}
               <button
                 id="btn-google-login"
                 type="button"
@@ -677,7 +663,7 @@ const LoginPage: React.FC = () => {
                 disabled={loading || googleVerifying}
               >
                 <GoogleIcon size={19} />
-                <span>Continue with Google</span>
+                <span>{googleVerifying ? 'Connecting to Google…' : 'Continue with Google'}</span>
               </button>
 
               <div className="auth-divider">
@@ -749,7 +735,7 @@ const LoginPage: React.FC = () => {
                 <p className="auth-form-subtitle">Create your ROIlytics account</p>
               </div>
 
-              {/* Google Sign Up Button */}
+              {/* Single Clean Google Sign Up Button */}
               <button
                 id="btn-google-register"
                 type="button"
@@ -758,7 +744,7 @@ const LoginPage: React.FC = () => {
                 disabled={loading || googleVerifying}
               >
                 <GoogleIcon size={19} />
-                <span>Sign up with Google</span>
+                <span>{googleVerifying ? 'Connecting to Google…' : 'Sign up with Google'}</span>
               </button>
 
               <div className="auth-divider">
@@ -981,17 +967,6 @@ const LoginPage: React.FC = () => {
                   <span>Launch Official Google Sign-In</span>
                 </button>
 
-                <div className="google-modal-divider">
-                  <span>or</span>
-                </div>
-
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-google-demo-fallback"
-                  onClick={handleInstantDemoGoogle}
-                >
-                  <span>Continue with Instant Demo Google Profile</span>
-                </button>
               </div>
             )}
           </div>

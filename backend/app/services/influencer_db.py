@@ -6,6 +6,7 @@ import sqlite3
 import logging
 from pathlib import Path
 from typing import Any, Tuple, List, Optional
+from decimal import Decimal
 from dotenv import load_dotenv
 
 try:
@@ -55,13 +56,20 @@ def get_mysql_conn():
     """Attempt to establish a MySQL connection using PyMySQL."""
     if not PYMYSQL_AVAILABLE:
         return None
+    # Re-read env vars in case .env was updated dynamically
+    host = os.getenv("MYSQL_HOST", MYSQL_HOST)
+    port = int(os.getenv("MYSQL_PORT", str(MYSQL_PORT)))
+    user = os.getenv("MYSQL_USER", MYSQL_USER)
+    password = os.getenv("MYSQL_PASSWORD", MYSQL_PASSWORD)
+    database = os.getenv("MYSQL_DATABASE", MYSQL_DATABASE)
+
     try:
         conn = pymysql.connect(
-            host=MYSQL_HOST,
-            port=MYSQL_PORT,
-            user=MYSQL_USER,
-            password=MYSQL_PASSWORD,
-            database=MYSQL_DATABASE,
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database=database,
             charset="utf8mb4",
             cursorclass=pymysql.cursors.DictCursor,
             connect_timeout=2,
@@ -70,6 +78,23 @@ def get_mysql_conn():
         )
         return conn
     except Exception as exc:
+        # Error 1049: Unknown database -> auto-create database if credentials are valid
+        if hasattr(exc, "args") and exc.args and exc.args[0] == 1049:
+            try:
+                temp_conn = pymysql.connect(
+                    host=host, port=port, user=user, password=password,
+                    charset="utf8mb4", connect_timeout=2
+                )
+                with temp_conn.cursor() as cur:
+                    cur.execute(f"CREATE DATABASE IF NOT EXISTS `{database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+                temp_conn.close()
+                return pymysql.connect(
+                    host=host, port=port, user=user, password=password, database=database,
+                    charset="utf8mb4", cursorclass=pymysql.cursors.DictCursor,
+                    connect_timeout=2, read_timeout=5, autocommit=True
+                )
+            except Exception:
+                pass
         global _mysql_failed_logged
         if not _mysql_failed_logged:
             logger.info("MySQL connection unavailable (%s); using SQLite fallback: %s", exc, DB_PATH)
@@ -82,6 +107,16 @@ def get_sqlite_conn() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _clean_val(val: Any) -> Any:
+    if isinstance(val, Decimal):
+        return float(val)
+    return val
+
+
+def _clean_row(row: dict) -> dict:
+    return {k: _clean_val(v) for k, v in row.items()}
 
 
 def query_db(sql: str, params: tuple | list = ()) -> Tuple[List[dict], str]:
@@ -98,7 +133,7 @@ def query_db(sql: str, params: tuple | list = ()) -> Tuple[List[dict], str]:
                 mysql_sql = sql.replace("?", "%s")
                 cur.execute(mysql_sql, params)
                 rows = cur.fetchall()
-                return [dict(r) for r in rows], "mysql"
+                return [_clean_row(dict(r)) for r in rows], "mysql"
         except Exception as exc:
             logger.warning("MySQL query failed: %s; falling back to SQLite", exc)
         finally:
@@ -111,7 +146,7 @@ def query_db(sql: str, params: tuple | list = ()) -> Tuple[List[dict], str]:
     conn = get_sqlite_conn()
     try:
         rows = conn.execute(sql, params).fetchall()
-        return [dict(r) for r in rows], "sqlite"
+        return [_clean_row(dict(r)) for r in rows], "sqlite"
     finally:
         conn.close()
 
@@ -199,9 +234,9 @@ def compute_fit_score(
       - Goal alignment    15%  (ER weight depends on goal)
     """
     # Engagement score
-    benchmark = CATEGORY_ER_BENCHMARKS.get(category, 0.045)
-    er = inf.get("engagement_rate", 0)
-    er_score = min(er / (benchmark * 2), 1.0) * 100  # 0–100
+    benchmark = float(CATEGORY_ER_BENCHMARKS.get(category, 0.045))
+    er = float(inf.get("engagement_rate", 0) or 0.0)
+    er_score = min(er / (benchmark * 2.0), 1.0) * 100.0  # 0–100
 
     # Follower tier fit (budget alignment)
     inf_tier = inf.get("follower_tier", "Micro")
@@ -209,16 +244,17 @@ def compute_fit_score(
     budget_tier_idx = tier_order.index(budget_tier) if budget_tier in tier_order else 1
     inf_tier_idx    = tier_order.index(inf_tier)    if inf_tier    in tier_order else 1
     tier_diff = abs(budget_tier_idx - inf_tier_idx)
-    tier_score = [100, 70, 40, 10][min(tier_diff, 3)]
+    tier_score = float([100, 70, 40, 10][min(tier_diff, 3)])
 
     # ROI score (0–100, clamped at ROI=5x)
-    roi = inf.get("roi", 1.0)
-    roi_score = min(max(roi / 5.0, 0), 1.0) * 100
+    roi = float(inf.get("roi", 1.0) or 1.0)
+    roi_score = min(max(roi / 5.0, 0.0), 1.0) * 100.0
 
     # Goal alignment adjustment
     if goal == "awareness":
         # Followers matter more -> boost Macro/Mega
-        goal_bonus = (inf.get("followers_count", 0) / 1_000_000) * 10
+        followers = float(inf.get("followers_count", 0) or 0.0)
+        goal_bonus = (followers / 1_000_000.0) * 10.0
     elif goal == "engagement":
         # Pure ER focus
         goal_bonus = er_score * 0.1
@@ -226,7 +262,7 @@ def compute_fit_score(
         goal_bonus = roi_score * 0.1
 
     raw = (er_score * 0.35) + (tier_score * 0.20) + (roi_score * 0.30) + (goal_bonus * 0.15)
-    return round(min(raw, 100), 1)
+    return round(min(float(raw), 100.0), 1)
 
 
 def get_influencer_by_username(username: str) -> dict | None:

@@ -96,19 +96,19 @@ class InstagramProfile(BaseModel):
 # ─── Influencer Discovery ─────────────────────────────────────────────────────
 
 class BrandProfileRequest(BaseModel):
-    brand_name: str = Field(..., example="Nike")
-    category: str = Field(..., example="Fitness")
-    budget: float = Field(..., ge=200, le=10_000_000, example=5000)
-    goal: str = Field("awareness", example="awareness")  # awareness | engagement | sales
+    brand_name: Optional[str] = Field("My Brand", example="Nike")
+    category: Optional[str] = Field("Fitness", example="Fitness")
+    budget: float = Field(5000.0, ge=100, le=10_000_000, example=5000)
+    goal: Optional[str] = Field("awareness", example="awareness")  # awareness | engagement | sales
     country: Optional[str] = Field(None, example="IN")
     min_followers: int = Field(0, ge=0)
     max_followers: int = Field(999_999_999, ge=0)
     min_er: float = Field(0.0, ge=0.0)
     follower_tier: Optional[str] = Field(None)  # Nano | Micro | Macro | Mega | All
     is_verified: Optional[bool] = Field(None)
-    limit: int = Field(20, ge=1, le=100)
+    limit: int = Field(30, ge=1, le=100)
     offset: int = Field(0, ge=0)
-    sort_by: str = Field("fit_score")  # fit_score | roi | followers | engagement_rate
+    sort_by: Optional[str] = Field("fit_score")  # fit_score | roi | followers | engagement_rate
 
 
 class InfluencerCard(BaseModel):
@@ -116,19 +116,19 @@ class InfluencerCard(BaseModel):
     username: str
     full_name: str
     category: str
-    sub_category: str
-    biography: str
+    sub_category: Optional[str] = ""
+    biography: Optional[str] = ""
     followers_count: int
     avg_likes: float
     avg_comments: float
     engagement_rate: float
     posting_frequency: float
-    estimated_reach: int
+    estimated_reach: Optional[int] = 0
     is_verified: bool
     country: str
     follower_tier: str
-    audience_female_pct: float
-    audience_male_pct: float
+    audience_female_pct: Optional[float] = 0.5
+    audience_male_pct: Optional[float] = 0.5
     fit_score: float
     roi: float
     spend: float

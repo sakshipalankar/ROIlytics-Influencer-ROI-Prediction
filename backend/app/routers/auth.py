@@ -328,6 +328,11 @@ async def test_mysql(payload: TestMySQLPayload):
             with open(env_path, "w") as f:
                 f.write(content)
 
+        # Update in-memory environment & services
+        os.environ["MYSQL_PASSWORD"] = payload.password
+        influencer_db.MYSQL_PASSWORD = payload.password
+        influencer_db.init_users_table()
+
         return {
             "status": "connected",
             "message": "Successfully connected to MySQL and migrated data!",
