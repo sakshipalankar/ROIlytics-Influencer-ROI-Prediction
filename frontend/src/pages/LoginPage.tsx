@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore, pickColor } from '../store/useAppStore';
 import {
   TrendingUp,
@@ -127,6 +127,58 @@ const LoginPage: React.FC = () => {
     setCopiedOrigin(true);
     setTimeout(() => setCopiedOrigin(false), 2200);
   };
+
+  // Google One Tap prompt (shows real signed-in Google accounts on page load if Client ID is configured)
+  useEffect(() => {
+    const activeClientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || localStorage.getItem('roilytics_google_client_id');
+    if (activeClientId && activeClientId.trim().length > 15 && (window as any).google?.accounts?.id) {
+      try {
+        (window as any).google.accounts.id.initialize({
+          client_id: activeClientId.trim(),
+          callback: (response: any) => {
+            if (response?.credential) {
+              try {
+                const base64Url = response.credential.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const payload = JSON.parse(decodeURIComponent(escape(atob(base64))));
+                const realEmail = payload.email;
+                const realName = payload.name || realEmail.split('@')[0];
+                const realPicture = payload.picture;
+
+                const users = getUsers();
+                const existing = users.find(u => u.email.toLowerCase() === realEmail.toLowerCase());
+                if (!existing) {
+                  users.push({ username: realName, email: realEmail, avatarUrl: realPicture, provider: 'google' });
+                  saveUsers(users);
+                } else {
+                  existing.avatarUrl = realPicture || existing.avatarUrl;
+                  existing.provider = 'google';
+                  saveUsers(users);
+                }
+
+                setUser({
+                  username: realName,
+                  email: realEmail,
+                  avatarColor: '#4285F4',
+                  avatarUrl: realPicture,
+                  joinedAt: new Date().toISOString(),
+                  provider: 'google',
+                });
+              } catch (err) {
+                console.error('Error reading Google ID Token:', err);
+              }
+            }
+          },
+          auto_select: false,
+        });
+
+        // Prompt Google One Tap popup in the top right corner
+        (window as any).google.accounts.id.prompt();
+      } catch (e) {
+        console.warn('Google One Tap notice:', e);
+      }
+    }
+  }, []);
 
   const launchGoogleRealAuth = (rawClientId: string) => {
     const activeClientId = rawClientId.trim();
