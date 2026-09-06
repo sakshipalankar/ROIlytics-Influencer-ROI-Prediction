@@ -21,6 +21,7 @@ import {
   Check,
   ExternalLink,
 } from 'lucide-react';
+import { registerUser, loginUser, googleAuthSync } from '../api/client';
 
 /* ── Simple local "auth" — stores in zustand/localStorage ── */
 
@@ -147,6 +148,13 @@ const LoginPage: React.FC = () => {
                 const realName = payload.name || realEmail.split('@')[0];
                 const realPicture = payload.picture;
 
+                // Save to backend database (MySQL & SQLite)
+                googleAuthSync({
+                  email: realEmail,
+                  name: realName,
+                  picture: realPicture,
+                }).catch(err => console.warn('Backend DB sync error for Google user:', err));
+
                 const users = getUsers();
                 const existing = users.find(u => u.email.toLowerCase() === realEmail.toLowerCase());
                 if (!existing) {
@@ -232,7 +240,18 @@ const LoginPage: React.FC = () => {
             const realName = googleUser.name || realEmail.split('@')[0];
             const realPicture = googleUser.picture;
 
-            // Save to local user database
+            // Save to backend database (MySQL & SQLite)
+            try {
+              await googleAuthSync({
+                email: realEmail,
+                name: realName,
+                picture: realPicture,
+              });
+            } catch (syncErr) {
+              console.warn('Backend DB sync error for Google user:', syncErr);
+            }
+
+            // Save to local user database cache
             const users = getUsers();
             const existing = users.find(u => u.email.toLowerCase() === realEmail.toLowerCase());
             if (!existing) {
@@ -293,7 +312,16 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const handleInstantDemoGoogle = () => {
+  const handleInstantDemoGoogle = async () => {
+    try {
+      await googleAuthSync({
+        email: 'alex.rivers@gmail.com',
+        name: 'Alex Rivers',
+        picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+      });
+    } catch (err) {
+      console.warn('Google demo DB sync error:', err);
+    }
     setUser({
       username: 'Alex Rivers',
       email: 'alex.rivers@gmail.com',
@@ -312,33 +340,49 @@ const LoginPage: React.FC = () => {
     if (!validateEmail(email)) { setError('Invalid email address.'); return; }
 
     setLoading(true);
-    await new Promise(r => setTimeout(r, 600)); // simulate network
 
-    const users = getUsers();
-    const found = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
-    if (!found) {
-      if (email === 'demo@roilytics.ai') {
+    try {
+      // 1. Authenticate directly against backend database (MySQL / SQLite)
+      const res = await loginUser({ email: email.trim().toLowerCase(), password });
+      setUser({
+        username: res.username || res.name || 'User',
+        email: res.email,
+        avatarColor: pickColor(res.username),
+        avatarUrl: res.avatar_url || res.avatar,
+        joinedAt: res.created_at || new Date().toISOString(),
+        provider: (res.provider as any) || 'email',
+      });
+      setLoading(false);
+    } catch (err: any) {
+      // Fallback check against local cache / demo users
+      const users = getUsers();
+      const found = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+      if (found) {
+        setUser({
+          username: found.username,
+          email: found.email,
+          avatarColor: pickColor(found.username),
+          joinedAt: new Date().toISOString(),
+          provider: 'email',
+        });
+        setLoading(false);
+        return;
+      }
+      if (email === 'demo@roilytics.ai' && password === 'Password123!') {
         setUser({
           username: 'Alex Rivers',
           email: 'demo@roilytics.ai',
           avatarColor: pickColor('Alex Rivers'),
           joinedAt: new Date().toISOString(),
+          provider: 'email',
         });
         setLoading(false);
         return;
       }
       setLoading(false);
-      setError('Incorrect email or password. Use demo account or create an account.');
-      return;
+      const msg = err.response?.data?.detail || 'Incorrect email or password. Use demo account or create an account.';
+      setError(msg);
     }
-
-    setUser({
-      username: found.username,
-      email: found.email,
-      avatarColor: pickColor(found.username),
-      joinedAt: new Date().toISOString(),
-    });
-    setLoading(false);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -351,27 +395,32 @@ const LoginPage: React.FC = () => {
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
 
     setLoading(true);
-    await new Promise(r => setTimeout(r, 800));
 
-    const users = getUsers();
-    if (users.find(u => u.email === email)) {
-      setLoading(false);
-      setError('An account with this email already exists.');
-      return;
-    }
-    if (users.find(u => u.username.toLowerCase() === username.toLowerCase())) {
-      setLoading(false);
-      setError('Username is already taken.');
-      return;
-    }
+    try {
+      // 1. Save user directly into backend database (MySQL & SQLite)
+      const created = await registerUser({
+        username: username.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+      });
 
-    users.push({ username: username.trim(), email, password });
-    saveUsers(users);
-    setLoading(false);
-    setPassword('');
-    setUsername('');
-    setSuccess('Account created successfully! Please sign in with your password.');
-    setTab('login');
+      // 2. Also keep local user storage in sync
+      const users = getUsers();
+      if (!users.find(u => u.email.toLowerCase() === email.trim().toLowerCase())) {
+        users.push({ username: username.trim(), email: email.trim().toLowerCase(), password });
+        saveUsers(users);
+      }
+
+      setLoading(false);
+      setPassword('');
+      setUsername('');
+      setSuccess(`Account "${created.username || username}" created & saved in database! Please sign in.`);
+      setTab('login');
+    } catch (err: any) {
+      setLoading(false);
+      const msg = err.response?.data?.detail || err.message || 'Registration failed. Please try again.';
+      setError(msg);
+    }
   };
 
   return (

@@ -159,3 +159,49 @@ export interface DatasetStats {
 export interface ShortlistItem extends InfluencerCard {
   addedAt: number;
 }
+
+// ─── Authentication & User Types ─────────────────────────────────────────────
+export interface AuthUser {
+  id?: number;
+  username: string;
+  name?: string;
+  email: string;
+  avatar_url?: string;
+  avatar?: string;
+  provider?: string;
+  role?: string;
+  company?: string;
+  created_at?: string;
+}
+
+export interface RegisterPayload {
+  username: string;
+  email: string;
+  password: string;
+  role?: string;
+  company?: string;
+}
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+export interface GoogleAuthPayload {
+  email: string;
+  name: string;
+  picture?: string;
+}
+
+export interface UpdateProfilePayload {
+  email: string;
+  username: string;
+  role?: string;
+  avatar_url?: string;
+}
+
+export interface ChangePasswordPayload {
+  email: string;
+  current_password: string;
+  new_password: string;
+}

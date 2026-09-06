@@ -82,3 +82,49 @@ export const compareInfluencers = async (
   });
   return data;
 };
+
+// ─── Authentication & User Persistence ────────────────────────────────────────
+import type {
+  AuthUser, RegisterPayload, LoginPayload, GoogleAuthPayload,
+  UpdateProfilePayload, ChangePasswordPayload
+} from '../types';
+
+export const registerUser = async (payload: RegisterPayload): Promise<AuthUser> => {
+  const { data } = await api.post<AuthUser>('/auth/register', payload);
+  return data;
+};
+
+export const loginUser = async (payload: LoginPayload): Promise<AuthUser> => {
+  const { data } = await api.post<AuthUser>('/auth/login', payload);
+  return data;
+};
+
+export const googleAuthSync = async (payload: GoogleAuthPayload): Promise<AuthUser> => {
+  const { data } = await api.post<AuthUser>('/auth/google', payload);
+  return data;
+};
+
+export const getDatabaseUsers = async (): Promise<{ total: number; users: AuthUser[] }> => {
+  const { data } = await api.get<{ total: number; users: AuthUser[] }>('/auth/users');
+  return data;
+};
+
+export const getUserProfile = async (email: string): Promise<AuthUser> => {
+  const { data } = await api.get<AuthUser>('/auth/me', { params: { email } });
+  return data;
+};
+
+export const updateUserProfile = async (payload: UpdateProfilePayload): Promise<AuthUser> => {
+  const { data } = await api.put<AuthUser>('/auth/profile', payload);
+  return data;
+};
+
+export const changeUserPassword = async (payload: ChangePasswordPayload): Promise<{ success: boolean; message: string }> => {
+  const { data } = await api.post<{ success: boolean; message: string }>('/auth/change-password', payload);
+  return data;
+};
+
+export const testAndConnectMySQL = async (password: string, host?: string, port?: number, user?: string): Promise<any> => {
+  const { data } = await api.post('/auth/test-mysql', { password, host, port, user });
+  return data;
+};

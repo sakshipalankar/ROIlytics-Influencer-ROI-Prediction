@@ -160,3 +160,46 @@ class ShortlistCompareRequest(BaseModel):
     influencer_ids: List[int] = Field(..., min_length=2, max_length=5)
     budget: float = Field(..., ge=200)
     goal: str = Field("awareness")
+
+
+# ─── User Authentication & Management ──────────────────────────────────────────
+
+class UserRegisterRequest(BaseModel):
+    username: str = Field(..., min_length=2, max_length=100)
+    email: str = Field(..., min_length=5, max_length=150)
+    password: str = Field(..., min_length=6)
+    role: Optional[str] = "Campaign Manager"
+
+
+class UserLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class GoogleAuthRequest(BaseModel):
+    email: str
+    name: str
+    picture: Optional[str] = None
+
+
+class UserProfileResponse(BaseModel):
+    id: Optional[int] = None
+    username: str
+    email: str
+    avatar_url: Optional[str] = None
+    provider: str = "email"
+    role: str = "Campaign Manager"
+    created_at: Optional[str] = None
+
+
+class UpdateProfileRequest(BaseModel):
+    email: str
+    username: str
+    role: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    email: str
+    current_password: str
+    new_password: str

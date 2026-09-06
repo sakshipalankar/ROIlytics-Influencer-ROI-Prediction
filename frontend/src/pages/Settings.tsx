@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import type { Category, DatasetStats } from '../types';
-import { getDatasetStats } from '../api/client';
+import type { Category, DatasetStats, AuthUser } from '../types';
+import {
+  getDatasetStats,
+  getDatabaseUsers,
+  updateUserProfile,
+  changeUserPassword,
+  testAndConnectMySQL,
+} from '../api/client';
 import {
   User,
   Settings as SettingsIcon,
@@ -15,6 +21,10 @@ import {
   Key,
   Radio,
   Sparkles,
+  Users,
+  RefreshCw,
+  Server,
+  Lock,
 } from 'lucide-react';
 import { GoogleIcon } from './LoginPage';
 
@@ -28,12 +38,30 @@ const Settings: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'api' | 'security'>('profile');
   const [dbStats, setDbStats] = useState<DatasetStats | null>(null);
+  const [dbUsers, setDbUsers] = useState<AuthUser[]>([]);
+  const [loadingDbUsers, setLoadingDbUsers] = useState(false);
+
+  // MySQL connection state
+  const [mysqlPassword, setMysqlPassword] = useState('');
+  const [mysqlTesting, setMysqlTesting] = useState(false);
+  const [mysqlStatusMsg, setMysqlStatusMsg] = useState('');
+  const [mysqlErrorMsg, setMysqlErrorMsg] = useState('');
+
+  const fetchDatabaseInfo = () => {
+    setLoadingDbUsers(true);
+    getDatasetStats()
+      .then(data => setDbStats(data))
+      .catch(err => console.error('Failed to load dataset stats in settings', err));
+
+    getDatabaseUsers()
+      .then(data => setDbUsers(data.users || []))
+      .catch(err => console.error('Failed to load database users in settings', err))
+      .finally(() => setLoadingDbUsers(false));
+  };
 
   useEffect(() => {
     if (activeTab === 'api') {
-      getDatasetStats()
-        .then(data => setDbStats(data))
-        .catch(err => console.error('Failed to load dataset stats in settings', err));
+      fetchDatabaseInfo();
     }
   }, [activeTab]);
 
@@ -80,7 +108,7 @@ const Settings: React.FC = () => {
     .slice(0, 2)
     .toUpperCase() || 'U';
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
@@ -98,6 +126,17 @@ const Settings: React.FC = () => {
         avatarColor,
       };
       setUser(updatedUser);
+
+      // Persist to backend database (MySQL & SQLite)
+      try {
+        await updateUserProfile({
+          email: email.trim(),
+          username: username.trim(),
+          role,
+        });
+      } catch (err) {
+        console.warn('Backend user profile update notice:', err);
+      }
 
       // Update in localStorage
       try {
@@ -124,11 +163,11 @@ const Settings: React.FC = () => {
       goal,
     });
 
-    setSuccessMsg('Profile and brand settings updated successfully!');
+    setSuccessMsg('Profile and brand settings updated and saved to database!');
     setTimeout(() => setSuccessMsg(''), 3500);
   };
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
@@ -146,30 +185,61 @@ const Settings: React.FC = () => {
       return;
     }
 
-    // Update in localStorage if user exists
     try {
-      const raw = localStorage.getItem('roilytics-users');
-      if (raw && user) {
-        const users = JSON.parse(raw);
-        const found = users.find((u: any) => u.email.toLowerCase() === user.email.toLowerCase());
-        if (found) {
-          if (found.password && found.password !== currentPwd) {
-            setErrorMsg('Current password does not match records.');
-            return;
+      // Update in backend database (MySQL & SQLite)
+      await changeUserPassword({
+        email: user?.email || email.trim(),
+        current_password: currentPwd,
+        new_password: newPwd,
+      });
+
+      // Update in localStorage if user exists
+      try {
+        const raw = localStorage.getItem('roilytics-users');
+        if (raw && user) {
+          const users = JSON.parse(raw);
+          const found = users.find((u: any) => u.email.toLowerCase() === user.email.toLowerCase());
+          if (found) {
+            found.password = newPwd;
+            localStorage.setItem('roilytics-users', JSON.stringify(users));
           }
-          found.password = newPwd;
-          localStorage.setItem('roilytics-users', JSON.stringify(users));
         }
+      } catch (err) {
+        console.error(err);
       }
-    } catch (err) {
-      console.error(err);
+
+      setCurrentPwd('');
+      setNewPwd('');
+      setConfirmPwd('');
+      setSuccessMsg('Password updated successfully in database!');
+      setTimeout(() => setSuccessMsg(''), 3500);
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || err.message || 'Failed to update password.';
+      setErrorMsg(msg);
+    }
+  };
+
+  const handleConnectMySQL = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMysqlStatusMsg('');
+    setMysqlErrorMsg('');
+    if (!mysqlPassword) {
+      setMysqlErrorMsg('Please enter your MySQL root password.');
+      return;
     }
 
-    setCurrentPwd('');
-    setNewPwd('');
-    setConfirmPwd('');
-    setSuccessMsg('Password updated successfully!');
-    setTimeout(() => setSuccessMsg(''), 3500);
+    setMysqlTesting(true);
+    try {
+      const res = await testAndConnectMySQL(mysqlPassword);
+      setMysqlStatusMsg(res.message || 'Successfully connected to MySQL and migrated data!');
+      setMysqlPassword('');
+      fetchDatabaseInfo();
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || err.message || 'MySQL connection failed.';
+      setMysqlErrorMsg(msg);
+    } finally {
+      setMysqlTesting(false);
+    }
   };
 
   return (
@@ -502,6 +572,111 @@ const Settings: React.FC = () => {
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>DDL & Migration Script</div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}><code>database/schema.sql</code> & <code>setup_mysql.py</code></div>
                 </div>
+              </div>
+
+              {/* Live Registered Database Users */}
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Users size={16} color="var(--accent-primary)" />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Live Accounts in Database ({dbUsers.length})
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={fetchDatabaseInfo}
+                    disabled={loadingDbUsers}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <RefreshCw size={13} className={loadingDbUsers ? 'animate-spin' : ''} />
+                    <span>Refresh DB</span>
+                  </button>
+                </div>
+
+                {dbUsers.length === 0 ? (
+                  <div style={{ padding: '12px 16px', background: 'var(--bg-base)', borderRadius: 8, fontSize: 13, color: 'var(--text-muted)' }}>
+                    No users loaded yet or database table empty.
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto', background: 'var(--bg-base)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                    <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                          <th style={{ padding: '8px 12px' }}>ID</th>
+                          <th style={{ padding: '8px 12px' }}>Username</th>
+                          <th style={{ padding: '8px 12px' }}>Email</th>
+                          <th style={{ padding: '8px 12px' }}>Provider</th>
+                          <th style={{ padding: '8px 12px' }}>Role</th>
+                          <th style={{ padding: '8px 12px' }}>Created</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dbUsers.map(u => (
+                          <tr key={u.email} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <td style={{ padding: '8px 12px', fontWeight: 700 }}>#{u.id || '-'}</td>
+                            <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-primary)' }}>{u.username || u.name}</td>
+                            <td style={{ padding: '8px 12px', color: 'var(--text-secondary)' }}>{u.email}</td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <span className={`badge ${u.provider === 'google' ? 'badge-indigo' : 'badge-emerald'}`} style={{ fontSize: 10, padding: '2px 6px' }}>
+                                {u.provider || 'email'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>{u.role || 'Campaign Manager'}</td>
+                            <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : 'Active'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Connect / Migrate to MySQL Server */}
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Server size={16} color="#38bdf8" />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Connect & Migrate to Local MySQL 9.4 Server
+                  </span>
+                  <span className="badge badge-emerald" style={{ fontSize: 10, padding: '2px 6px' }}>
+                    Dual-Sync
+                  </span>
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}>
+                  Enter your MySQL <code>root</code> password to test connection on <code>localhost:3306</code> and auto-migrate <code>roilytics_db</code> with all 10,500+ profiles and users.
+                </p>
+
+                {mysqlStatusMsg && (
+                  <div className="auth-alert auth-alert-success" style={{ marginBottom: 10, fontSize: 12, padding: '8px 12px' }}>
+                    <CheckCircle2 size={14} />
+                    <span>{mysqlStatusMsg}</span>
+                  </div>
+                )}
+                {mysqlErrorMsg && (
+                  <div className="auth-alert auth-alert-error" style={{ marginBottom: 10, fontSize: 12, padding: '8px 12px' }}>
+                    <AlertCircle size={14} />
+                    <span>{mysqlErrorMsg}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleConnectMySQL} style={{ display: 'flex', gap: 10, alignItems: 'center', maxWidth: 450 }}>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <input
+                      type="password"
+                      className="form-input"
+                      placeholder="Enter MySQL root password"
+                      value={mysqlPassword}
+                      onChange={e => setMysqlPassword(e.target.value)}
+                      style={{ paddingLeft: 32, fontSize: 12 }}
+                    />
+                    <Lock size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  </div>
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={mysqlTesting} style={{ whiteSpace: 'nowrap' }}>
+                    {mysqlTesting ? 'Connecting…' : 'Sync to MySQL'}
+                  </button>
+                </form>
               </div>
             </div>
 

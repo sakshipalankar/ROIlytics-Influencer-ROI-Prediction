@@ -1,4 +1,4 @@
-﻿"""
+"""
 Setup and Migrate ROIlytics Data to MySQL Database (roilytics_db)
 """
 import os
@@ -175,21 +175,76 @@ def migrate_campaigns(conn):
     print(f"Successfully migrated {len(campaigns)} marketing campaigns into MySQL!")
 
 
-def seed_default_users(conn):
-    """Seed demo accounts."""
+def migrate_users(conn):
+    """Migrate all users from SQLite into MySQL and ensure demo accounts exist."""
+    rows = []
+    if SQLITE_DB.exists():
+        s_conn = sqlite3.connect(str(SQLITE_DB))
+        s_conn.row_factory = sqlite3.Row
+        try:
+            rows = [dict(r) for r in s_conn.execute("SELECT * FROM users").fetchall()]
+        except Exception as e:
+            print(f"Notice reading SQLite users: {e}")
+        finally:
+            s_conn.close()
+
     insert_sql = """
     INSERT IGNORE INTO `roilytics_db`.`users`
-      (`username`, `email`, `password_hash`, `provider`, `role`)
-    VALUES (%s, %s, %s, %s, %s)
+      (`username`, `email`, `password_hash`, `avatar_url`, `provider`, `role`)
+    VALUES (%s, %s, %s, %s, %s, %s)
     """
-    users = [
-        ("Alex Rivers", "demo@roilytics.ai", "Password123!", "email", "Senior Campaign Strategist"),
-        ("Sarah Chen", "sarah.chen@glowbeauty.com", "Password123!", "email", "Marketing Director"),
+    to_insert = []
+    for r in rows:
+        to_insert.append((
+            r.get("username"),
+            r.get("email"),
+            r.get("password_hash"),
+            r.get("avatar_url"),
+            r.get("provider", "email"),
+            r.get("role", "Campaign Manager"),
+        ))
+
+    # Always ensure default demo user
+    demo_users = [
+        ("Alex Rivers", "demo@roilytics.ai", "Password123!", None, "email", "Senior Campaign Strategist"),
+        ("Sarah Chen", "sarah.chen@glowbeauty.com", "Password123!", None, "email", "Marketing Director"),
     ]
+    for d in demo_users:
+        if not any(u[1] == d[1] for u in to_insert):
+            to_insert.append(d)
+
     with conn.cursor() as cur:
-        cur.executemany(insert_sql, users)
+        cur.executemany(insert_sql, to_insert)
         conn.commit()
-    print(f"Seeded {len(users)} default users into MySQL.")
+    print(f"Migrated and seeded {len(to_insert)} users into MySQL `roilytics_db`.`users` table!")
+
+
+def run_migration(password: str = None) -> dict:
+    """Executes full migration and returns summary dictionary."""
+    pwd = password if password is not None else MYSQL_PASSWORD
+    conn = get_mysql_connection(pwd)
+
+    init_database_and_tables(conn)
+    migrate_influencers(conn)
+    migrate_campaigns(conn)
+    migrate_users(conn)
+
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT COUNT(*) AS c FROM `{MYSQL_DATABASE}`.`influencers`;")
+        inf_count = cur.fetchone()["c"]
+        cur.execute(f"SELECT COUNT(*) AS c FROM `{MYSQL_DATABASE}`.`campaigns`;")
+        cmp_count = cur.fetchone()["c"]
+        cur.execute(f"SELECT COUNT(*) AS c FROM `{MYSQL_DATABASE}`.`users`;")
+        usr_count = cur.fetchone()["c"]
+
+    conn.close()
+    return {
+        "success": True,
+        "database": MYSQL_DATABASE,
+        "influencers": inf_count,
+        "campaigns": cmp_count,
+        "users": usr_count,
+    }
 
 
 def main():
@@ -203,7 +258,7 @@ def main():
     init_database_and_tables(conn)
     migrate_influencers(conn)
     migrate_campaigns(conn)
-    seed_default_users(conn)
+    migrate_users(conn)
 
     # Summary checks
     with conn.cursor() as cur:
@@ -226,3 +281,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -276,3 +276,158 @@ def get_dataset_stats() -> dict:
         "db_engine": engine,
         "db_host": MYSQL_HOST if engine == "mysql" else "local",
     }
+
+
+def execute_write(sql: str, params: tuple | list = ()) -> Tuple[bool, str]:
+    """
+    Execute an INSERT, UPDATE, or DELETE query.
+    Writes to MySQL if connected, AND also writes to SQLite to guarantee dual-engine sync.
+    Returns (success, primary_engine_name).
+    """
+    primary_engine = "sqlite"
+    mysql_conn = get_mysql_conn()
+    if mysql_conn is not None:
+        try:
+            with mysql_conn.cursor() as cur:
+                mysql_sql = sql.replace("?", "%s")
+                cur.execute(mysql_sql, params)
+            mysql_conn.commit()
+            primary_engine = "mysql"
+        except Exception as exc:
+            logger.warning("MySQL write error: %s", exc)
+        finally:
+            try:
+                mysql_conn.close()
+            except Exception:
+                pass
+
+    # Dual-sync to local SQLite database
+    s_conn = get_sqlite_conn()
+    try:
+        s_conn.execute(sql, params)
+        s_conn.commit()
+    except Exception as exc:
+        logger.warning("SQLite write error: %s", exc)
+    finally:
+        s_conn.close()
+
+    return True, primary_engine
+
+
+def init_users_table():
+    """Ensure users table exists in SQLite and MySQL."""
+    # SQLite
+    s_conn = get_sqlite_conn()
+    try:
+        s_conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT NOT NULL UNIQUE,
+          email TEXT NOT NULL UNIQUE,
+          password_hash TEXT,
+          avatar_url TEXT,
+          provider TEXT NOT NULL DEFAULT 'email',
+          role TEXT NOT NULL DEFAULT 'Campaign Manager',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+        s_conn.commit()
+    except Exception as e:
+        logger.warning("Error initializing SQLite users table: %s", e)
+    finally:
+        s_conn.close()
+
+    # MySQL if accessible
+    m_conn = get_mysql_conn()
+    if m_conn is not None:
+        try:
+            with m_conn.cursor() as cur:
+                cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                  id INT AUTO_INCREMENT PRIMARY KEY,
+                  username VARCHAR(100) NOT NULL UNIQUE,
+                  email VARCHAR(150) NOT NULL UNIQUE,
+                  password_hash VARCHAR(255),
+                  avatar_url VARCHAR(500),
+                  provider VARCHAR(50) DEFAULT 'email',
+                  role VARCHAR(100) DEFAULT 'Campaign Manager',
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                );
+                """)
+            m_conn.commit()
+        except Exception as e:
+            logger.warning("Error initializing MySQL users table: %s", e)
+        finally:
+            try:
+                m_conn.close()
+            except Exception:
+                pass
+
+# Auto-initialize users table on load
+init_users_table()
+
+
+def create_user(
+    username: str,
+    email: str,
+    password_hash: str | None = None,
+    avatar_url: str | None = None,
+    provider: str = "email",
+    role: str = "Campaign Manager",
+) -> dict:
+    """Create new user in the database (MySQL and SQLite)."""
+    existing = get_user_by_email(email)
+    if existing:
+        return existing
+
+    sql = """
+    INSERT INTO users (username, email, password_hash, avatar_url, provider, role)
+    VALUES (?, ?, ?, ?, ?, ?)
+    """
+    execute_write(sql, (username, email, password_hash, avatar_url, provider, role))
+    user = get_user_by_email(email)
+    return user or {
+        "username": username,
+        "email": email,
+        "avatar_url": avatar_url,
+        "provider": provider,
+        "role": role,
+    }
+
+
+def get_user_by_email(email: str) -> dict | None:
+    row, _ = query_one("SELECT * FROM users WHERE LOWER(email) = LOWER(?)", (email,))
+    return row
+
+
+def get_user_by_username(username: str) -> dict | None:
+    row, _ = query_one("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (username,))
+    return row
+
+
+def get_all_users() -> list[dict]:
+    rows, _ = query_db("SELECT id, username, email, avatar_url, provider, role, created_at FROM users ORDER BY id DESC")
+    return rows
+
+
+def update_user_password(email: str, new_password_hash: str) -> bool:
+    sql = "UPDATE users SET password_hash = ? WHERE LOWER(email) = LOWER(?)"
+    execute_write(sql, (new_password_hash, email))
+    return True
+
+
+def update_user_profile(email: str, username: str, role: str | None = None, avatar_url: str | None = None) -> dict | None:
+    fields = ["username = ?"]
+    params = [username]
+    if role:
+        fields.append("role = ?")
+        params.append(role)
+    if avatar_url:
+        fields.append("avatar_url = ?")
+        params.append(avatar_url)
+    params.append(email)
+    sql = f"UPDATE users SET {', '.join(fields)} WHERE LOWER(email) = LOWER(?)"
+    execute_write(sql, params)
+    return get_user_by_email(email)

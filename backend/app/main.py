@@ -19,7 +19,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import routers
-from .routers import predict, analytics, models, instagram, discover
+from .routers import predict, analytics, models, instagram, discover, auth
 from .services.predictor import PredictorService
 
 
@@ -72,6 +72,7 @@ app.include_router(analytics.router)
 app.include_router(models.router)
 app.include_router(instagram.router)
 app.include_router(discover.router)
+app.include_router(auth.router)
 
 
 @app.get("/health", tags=["health"])
