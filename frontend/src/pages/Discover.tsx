@@ -73,7 +73,7 @@ const Discover: React.FC = () => {
             <span className="card-title" style={{ fontSize: 15, fontWeight: 800 }}>🎯 Brand Setup & Campaign Targeting</span>
           </div>
           <span className="badge badge-indigo" style={{ fontSize: 11, padding: '3px 10px' }}>
-            {brandProfile.category} · ${brandProfile.budget.toLocaleString()} · {brandProfile.goal}
+            {brandProfile.category} · Rs. {brandProfile.budget.toLocaleString('en-IN')} · {brandProfile.goal}
           </span>
         </div>
         <div className="card-body" style={{ padding: '20px 22px' }}>
@@ -105,7 +105,7 @@ const Discover: React.FC = () => {
                     Top {discoveryResults.length} {brandProfile.category} Influencers
                   </span>
                   <span style={{ fontSize: 13, color: 'var(--text-muted)', marginLeft: 10 }}>
-                    for {brandProfile.brand_name || 'your brand'} · ${brandProfile.budget.toLocaleString()} budget
+                    for {brandProfile.brand_name || 'your brand'} · Rs. {brandProfile.budget.toLocaleString('en-IN')} budget
                   </span>
                 </div>
                 {shortlist.length > 0 && (

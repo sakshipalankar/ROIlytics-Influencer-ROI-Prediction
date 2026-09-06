@@ -122,7 +122,7 @@ const BrandSetupForm: React.FC<Props> = ({ onSearch }) => {
             <div className="bsh-field-header">
               <label className="bsh-label">Campaign Budget</label>
               <span className="bsh-budget-display">
-                ${brandProfile.budget.toLocaleString()}
+                Rs. {brandProfile.budget.toLocaleString('en-IN')}
               </span>
             </div>
             <input
@@ -144,7 +144,7 @@ const BrandSetupForm: React.FC<Props> = ({ onSearch }) => {
                   onClick={() => update({ budget: p })}
                   className={`bsh-preset-chip${brandProfile.budget === p ? ' active' : ''}`}
                 >
-                  ${p >= 1000 ? `${p / 1000}K` : p}
+                  Rs. {p >= 1000 ? `${p / 1000}K` : p}
                 </button>
               ))}
             </div>

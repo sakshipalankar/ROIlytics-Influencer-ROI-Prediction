@@ -8,7 +8,7 @@ interface Props {
   points: SimulatePoint[];
 }
 
-const fmtUSD = (v: number) => `$${Math.round(v).toLocaleString()}`;
+const fmtINR = (v: number) => `Rs. ${Math.round(v).toLocaleString('en-IN')}`;
 
 const BudgetSimChart: React.FC<Props> = ({ points }) => {
   return (
@@ -32,17 +32,17 @@ const BudgetSimChart: React.FC<Props> = ({ points }) => {
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
           <XAxis
             dataKey="spend"
-            tickFormatter={v => `$${(v / 1000).toFixed(0)}K`}
+            tickFormatter={v => `Rs. ${(v / 1000).toFixed(0)}K`}
             tick={{ fill: '#64748b', fontSize: 11 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
-            tickFormatter={v => `$${(v / 1000).toFixed(0)}K`}
+            tickFormatter={v => `Rs. ${(v / 1000).toFixed(0)}K`}
             tick={{ fill: '#64748b', fontSize: 11 }}
             axisLine={false}
             tickLine={false}
-            width={55}
+            width={65}
           />
           <Tooltip
             contentStyle={{
@@ -52,8 +52,8 @@ const BudgetSimChart: React.FC<Props> = ({ points }) => {
               fontSize: 12,
               color: '#f1f5f9',
             }}
-            formatter={(val: any, name: any) => [fmtUSD(Number(val)), String(name).charAt(0).toUpperCase() + String(name).slice(1)]}
-            labelFormatter={(label: any) => `Spend: ${fmtUSD(Number(label))}`}
+            formatter={(val: any, name: any) => [fmtINR(Number(val)), String(name).charAt(0).toUpperCase() + String(name).slice(1)]}
+            labelFormatter={(label: any) => `Spend: ${fmtINR(Number(label))}`}
           />
           <Legend wrapperStyle={{ fontSize: 12, color: '#94a3b8' }} />
           <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={2} fill="url(#grad-revenue)" name="Revenue" />

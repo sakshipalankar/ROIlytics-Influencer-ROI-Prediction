@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore, pickColor } from '../store/useAppStore';
-import { TrendingUp, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
+import { TrendingUp, Eye, EyeOff, CheckCircle, AlertCircle, Sun, Moon } from 'lucide-react';
 
 /* ── Simple local "auth" — stores in zustand/localStorage ── */
 
@@ -8,9 +8,23 @@ const FAKE_DB_KEY = 'roilytics-users';
 
 interface StoredUser { username: string; email: string; password: string }
 
+const DEFAULT_USERS: StoredUser[] = [
+  { username: 'Alex Rivers', email: 'demo@roilytics.ai', password: 'Password123!' },
+  { username: 'Sarah Chen', email: 'sarah.chen@glowbeauty.com', password: 'Password123!' },
+];
+
 const getUsers = (): StoredUser[] => {
-  try { return JSON.parse(localStorage.getItem(FAKE_DB_KEY) || '[]'); }
-  catch { return []; }
+  try {
+    const raw = localStorage.getItem(FAKE_DB_KEY);
+    if (!raw) {
+      localStorage.setItem(FAKE_DB_KEY, JSON.stringify(DEFAULT_USERS));
+      return DEFAULT_USERS;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_USERS;
+  } catch {
+    return DEFAULT_USERS;
+  }
 };
 const saveUsers = (users: StoredUser[]) =>
   localStorage.setItem(FAKE_DB_KEY, JSON.stringify(users));
@@ -35,7 +49,7 @@ function passwordStrength(p: string): { score: number; label: string; color: str
 }
 
 const LoginPage: React.FC = () => {
-  const { setUser } = useAppStore();
+  const { setUser, theme, toggleTheme } = useAppStore();
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
@@ -49,6 +63,12 @@ const LoginPage: React.FC = () => {
 
   const strength = passwordStrength(password);
 
+  const fillDemo = (e: string, p: string) => {
+    setEmail(e);
+    setPassword(p);
+    setError('');
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(''); setSuccess('');
@@ -56,13 +76,23 @@ const LoginPage: React.FC = () => {
     if (!validateEmail(email)) { setError('Invalid email address.'); return; }
 
     setLoading(true);
-    await new Promise(r => setTimeout(r, 700)); // simulate network
+    await new Promise(r => setTimeout(r, 600)); // simulate network
 
     const users = getUsers();
-    const found = users.find(u => u.email === email && u.password === password);
+    const found = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
     if (!found) {
+      if (email === 'demo@roilytics.ai') {
+        setUser({
+          username: 'Alex Rivers',
+          email: 'demo@roilytics.ai',
+          avatarColor: pickColor('Alex Rivers'),
+          joinedAt: new Date().toISOString(),
+        });
+        setLoading(false);
+        return;
+      }
       setLoading(false);
-      setError('Incorrect email or password.');
+      setError('Incorrect email or password. Use demo account or create an account.');
       return;
     }
 
@@ -110,11 +140,26 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="auth-shell">
+      {/* ── Theme toggle — top right corner ────────────────────── */}
+      <button
+        id="auth-theme-toggle"
+        className="auth-theme-toggle"
+        onClick={toggleTheme}
+        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        aria-label="Toggle theme"
+      >
+        <span className="theme-toggle-track">
+          <span className="theme-toggle-thumb">
+            {theme === 'dark' ? <Moon size={12} /> : <Sun size={12} />}
+          </span>
+        </span>
+      </button>
+
       {/* Left panel — branding */}
       <div className="auth-left">
         <div className="auth-brand">
           <div className="auth-logo">
-            <TrendingUp size={28} color="white" />
+            <TrendingUp size={28} color="var(--bg-base)" />
           </div>
           <h1 className="auth-brand-name">ROIlytics</h1>
         </div>
@@ -140,11 +185,11 @@ const LoginPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Decorative cards */}
+        {/* Decorative influencer cards */}
         <div className="auth-deco-cards">
           {[
             { name: '@fitness_guru_',  score: 94, tier: 'Micro', er: '7.2%', color: '#10b981' },
-            { name: '@tech_visionary', score: 87, tier: 'Macro', er: '4.1%', color: '#6366f1' },
+            { name: '@tech_visionary', score: 87, tier: 'Macro', er: '4.1%', color: 'var(--accent-primary)' },
             { name: '@beauty.world',   score: 81, tier: 'Nano',  er: '9.8%', color: '#f43f5e' },
           ].map((c, i) => (
             <div className="auth-deco-card" key={c.name} style={{ animationDelay: `${i * 0.15}s` }}>
@@ -152,20 +197,19 @@ const LoginPage: React.FC = () => {
                 <div style={{
                   width: 36, height: 36, borderRadius: '50%',
                   background: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 14, fontWeight: 800, color: 'white',
+                  fontSize: 14, fontWeight: 800, color: 'var(--bg-base)',
                 }}>
                   {c.name[1].toUpperCase()}
                 </div>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: '#f1f5f9' }}>{c.name}</div>
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{c.tier} · ER {c.er}</div>
+                  <div className="auth-deco-name">{c.name}</div>
+                  <div className="auth-deco-meta">{c.tier} · ER {c.er}</div>
                 </div>
               </div>
-              <div style={{
-                background: c.color + '22', color: c.color,
+              <div className="auth-deco-score" style={{
+                background: c.color + '22',
+                color: c.color,
                 border: `1px solid ${c.color}55`,
-                borderRadius: 8, padding: '3px 10px',
-                fontSize: 12, fontWeight: 800,
               }}>
                 {c.score}/100
               </div>
@@ -200,6 +244,25 @@ const LoginPage: React.FC = () => {
               <div className="auth-form-header">
                 <h2 className="auth-form-title">Welcome back</h2>
                 <p className="auth-form-subtitle">Sign in to your ROIlytics account</p>
+              </div>
+
+              {/* Demo quick-login chips */}
+              <div className="demo-chips">
+                <span className="demo-chip-label">⚡ Quick Fill:</span>
+                <button
+                  type="button"
+                  className="demo-chip"
+                  onClick={() => fillDemo('demo@roilytics.ai', 'Password123!')}
+                >
+                  Demo Account
+                </button>
+                <button
+                  type="button"
+                  className="demo-chip"
+                  onClick={() => fillDemo('sarah.chen@glowbeauty.com', 'Password123!')}
+                >
+                  Sarah (Brand Mgr)
+                </button>
               </div>
 
               <div className="form-group">
@@ -313,7 +376,7 @@ const LoginPage: React.FC = () => {
                       {[0, 1, 2, 3].map(i => (
                         <div key={i} style={{
                           flex: 1, height: 4, borderRadius: 2,
-                          background: i < strength.score ? strength.color : 'rgba(255,255,255,0.08)',
+                          background: i < strength.score ? strength.color : 'var(--border)',
                           transition: 'background 0.3s',
                         }} />
                       ))}
@@ -359,7 +422,7 @@ const LoginPage: React.FC = () => {
           )}
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: 12, color: '#475569', marginTop: 24 }}>
+        <p className="auth-footer-note">
           ROIlytics · Influencer Discovery Platform · v3.0
         </p>
       </div>

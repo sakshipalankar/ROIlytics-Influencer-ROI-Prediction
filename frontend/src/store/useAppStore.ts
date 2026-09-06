@@ -29,6 +29,11 @@ interface AppState {
   setUser: (u: AuthUser | null) => void;
   logout: () => void;
 
+  // Theme
+  theme: 'light' | 'dark';
+  setTheme: (t: 'light' | 'dark') => void;
+  toggleTheme: () => void;
+
   // Sidebar
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
@@ -105,6 +110,11 @@ export const useAppStore = create<AppState>()(
       setUser: (u) => set({ user: u }),
       logout: () => set({ user: null, shortlist: [], discoveryResults: [] }),
 
+      // Theme
+      theme: 'dark',
+      setTheme: (t) => set({ theme: t }),
+      toggleTheme: () => set(s => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
+
       // Sidebar
       sidebarOpen: true,
       setSidebarOpen: (v) => set({ sidebarOpen: v }),
@@ -163,9 +173,10 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'roilytics-store',
-      // Only persist auth + sidebar state
+      // Persist auth, sidebar, theme, shortlist, brandProfile
       partialize: (s) => ({
         user: s.user,
+        theme: s.theme,
         sidebarOpen: s.sidebarOpen,
         shortlist: s.shortlist,
         brandProfile: s.brandProfile,

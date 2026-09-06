@@ -8,8 +8,8 @@ interface Props {
 const fmt = (n: number, decimals = 2) =>
   n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
-const fmtUSD = (n: number) =>
-  n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+const fmtINR = (n: number) =>
+  `Rs. ${Math.round(n).toLocaleString('en-IN')}`;
 
 const KPI_DEFS = (r: PredictResponse) => [
   {
@@ -20,13 +20,13 @@ const KPI_DEFS = (r: PredictResponse) => [
   },
   {
     label: 'Predicted Revenue',
-    value: fmtUSD(r.predicted_revenue),
+    value: fmtINR(r.predicted_revenue),
     sub: 'Gross return on campaign',
     accent: '#10b981',
   },
   {
     label: 'Predicted Profit',
-    value: fmtUSD(r.predicted_profit),
+    value: fmtINR(r.predicted_profit),
     sub: r.predicted_profit >= 0 ? 'Net positive' : 'Net loss',
     accent: r.predicted_profit >= 0 ? '#10b981' : '#f43f5e',
   },

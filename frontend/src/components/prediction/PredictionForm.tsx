@@ -204,8 +204,8 @@ const PredictionForm: React.FC<Props> = ({ overview }) => {
         <div className="card-body">
           <div className="range-group">
             <div className="range-header">
-              <label className="form-label">Campaign Spend (USD)</label>
-              <span className="range-value">${form.spend.toLocaleString()}</span>
+              <label className="form-label">Campaign Spend (Rs.)</label>
+              <span className="range-value">Rs. {form.spend.toLocaleString('en-IN')}</span>
             </div>
             <input
               id="spend-slider"
@@ -215,7 +215,7 @@ const PredictionForm: React.FC<Props> = ({ overview }) => {
               onChange={e => update('spend', Number(e.target.value))}
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)' }}>
-              <span>$500</span><span>$10K</span><span>$50K</span><span>$100K</span>
+              <span>Rs. 500</span><span>Rs. 10K</span><span>Rs. 50K</span><span>Rs. 100K</span>
             </div>
           </div>
         </div>

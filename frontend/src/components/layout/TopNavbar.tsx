@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore, pickColor } from '../../store/useAppStore';
-import { Menu, TrendingUp, LogOut, User, ChevronDown, Bookmark } from 'lucide-react';
+import { Menu, TrendingUp, LogOut, User, ChevronDown, Bookmark, Sun, Moon } from 'lucide-react';
 
 const TopNavbar: React.FC = () => {
-  const { user, logout, toggleSidebar, sidebarOpen, shortlist, setActivePage, activePage } = useAppStore();
+  const { user, logout, toggleSidebar, sidebarOpen, shortlist, setActivePage, activePage, theme, toggleTheme } = useAppStore();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
 
@@ -79,6 +79,23 @@ const TopNavbar: React.FC = () => {
             <span className="navbar-badge">{shortlist.length}</span>
           </button>
         )}
+
+        {/* Theme Toggle */}
+        <button
+          id="theme-toggle-btn"
+          className="theme-toggle-btn"
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label="Toggle theme"
+        >
+          <span className="theme-toggle-track">
+            <span className="theme-toggle-thumb">
+              {theme === 'dark'
+                ? <Moon size={12} />
+                : <Sun size={12} />}
+            </span>
+          </span>
+        </button>
 
         {/* User avatar button */}
         <button

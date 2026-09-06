@@ -141,7 +141,7 @@ const LiveApiPanel: React.FC = () => {
               <div className="range-group">
                 <div className="range-header">
                   <label className="form-label">Campaign Spend for Prediction</label>
-                  <span className="range-value">${spend.toLocaleString()}</span>
+                  <span className="range-value">Rs. {spend.toLocaleString('en-IN')}</span>
                 </div>
                 <input
                   type="range" min={500} max={100000} step={500}
