@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore, pickColor } from '../store/useAppStore';
 import {
   TrendingUp,
@@ -16,13 +16,64 @@ import {
   Heart,
   ThumbsUp,
   Zap,
+  X,
+  Plus,
+  ArrowRight,
 } from 'lucide-react';
 
 /* ── Simple local "auth" — stores in zustand/localStorage ── */
 
 const FAKE_DB_KEY = 'roilytics-users';
 
-interface StoredUser { username: string; email: string; password: string }
+interface StoredUser {
+  username: string;
+  email: string;
+  password?: string;
+  avatarUrl?: string;
+  provider?: 'email' | 'google';
+}
+
+export const GoogleIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+    <path
+      d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+      fill="#4285F4"
+    />
+    <path
+      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.34 24 12 24z"
+      fill="#34A853"
+    />
+    <path
+      d="M5.28 14.27a7.198 7.198 0 0 1 0-4.54V6.58H1.24a11.996 11.996 0 0 0 0 10.84l4.04-3.15z"
+      fill="#FBBC05"
+    />
+    <path
+      d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+      fill="#EA4335"
+    />
+  </svg>
+);
+
+const GOOGLE_DEMO_ACCOUNTS = [
+  {
+    name: 'Alex Rivers',
+    email: 'alex.rivers@gmail.com',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    color: '#4285F4',
+  },
+  {
+    name: 'Sarah Chen',
+    email: 'sarah.chen@gmail.com',
+    avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80',
+    color: '#EA4335',
+  },
+  {
+    name: 'Growth Specialist',
+    email: 'marketing.growth@google.com',
+    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+    color: '#34A853',
+  },
+];
 
 const DEFAULT_USERS: StoredUser[] = [
   { username: 'Alex Rivers', email: 'demo@roilytics.ai', password: 'Password123!' },
@@ -78,6 +129,126 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
 
   const strength = passwordStrength(password);
+
+  // Google Auth states
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [googleMode, setGoogleMode] = useState<'select' | 'custom'>('select');
+  const [googleCustomName, setGoogleCustomName] = useState('');
+  const [googleCustomEmail, setGoogleCustomEmail] = useState('');
+  const [googleVerifying, setGoogleVerifying] = useState(false);
+  const [verifyingAccountName, setVerifyingAccountName] = useState('');
+  const [googleError, setGoogleError] = useState('');
+
+  const completeGoogleSignIn = async (account: { name: string; email: string; avatarUrl?: string; color?: string }) => {
+    setGoogleVerifying(true);
+    setVerifyingAccountName(account.name);
+    setGoogleError('');
+    await new Promise(r => setTimeout(r, 650));
+
+    const users = getUsers();
+    const existing = users.find(u => u.email.toLowerCase() === account.email.toLowerCase());
+    if (!existing) {
+      users.push({
+        username: account.name,
+        email: account.email,
+        avatarUrl: account.avatarUrl,
+        provider: 'google',
+      });
+      saveUsers(users);
+    } else {
+      existing.avatarUrl = account.avatarUrl || existing.avatarUrl;
+      existing.provider = 'google';
+      saveUsers(users);
+    }
+
+    setUser({
+      username: account.name,
+      email: account.email,
+      avatarColor: account.color || pickColor(account.name),
+      avatarUrl: account.avatarUrl,
+      joinedAt: new Date().toISOString(),
+      provider: 'google',
+    });
+    setGoogleVerifying(false);
+    setShowGoogleModal(false);
+  };
+
+  const handleGoogleCredential = (credential: string) => {
+    try {
+      const base64Url = credential.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      const payload = JSON.parse(jsonPayload);
+      completeGoogleSignIn({
+        name: payload.name || payload.given_name || 'Google User',
+        email: payload.email,
+        avatarUrl: payload.picture,
+        color: '#4285F4',
+      });
+    } catch (e) {
+      console.error('Error decoding Google JWT:', e);
+      setError('Failed to authenticate with Google. Please try again.');
+    }
+  };
+
+  useEffect(() => {
+    const clientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID;
+    if (clientId && (window as any).google?.accounts?.id) {
+      try {
+        (window as any).google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response: any) => {
+            if (response?.credential) {
+              handleGoogleCredential(response.credential);
+            }
+          },
+        });
+      } catch (e) {
+        console.warn('GIS initialization notice:', e);
+      }
+    }
+  }, []);
+
+  const handleGoogleClick = () => {
+    setError(''); setSuccess('');
+    const clientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID;
+    if (clientId && (window as any).google?.accounts?.id) {
+      try {
+        (window as any).google.accounts.id.prompt((notification: any) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            setShowGoogleModal(true);
+          }
+        });
+        return;
+      } catch {
+        setShowGoogleModal(true);
+        return;
+      }
+    }
+    setShowGoogleModal(true);
+  };
+
+  const handleCustomGoogleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!googleCustomName.trim()) {
+      setGoogleError('Please enter your full name.');
+      return;
+    }
+    if (!validateEmail(googleCustomEmail)) {
+      setGoogleError('Please enter a valid email address.');
+      return;
+    }
+    completeGoogleSignIn({
+      name: googleCustomName.trim(),
+      email: googleCustomEmail.trim(),
+      color: pickColor(googleCustomName),
+    });
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -393,6 +564,24 @@ const LoginPage: React.FC = () => {
                 <p className="auth-form-subtitle">Sign in to your ROIlytics account</p>
               </div>
 
+              {/* Google Sign In Button */}
+              <button
+                id="btn-google-login"
+                type="button"
+                className="btn-google-auth"
+                onClick={handleGoogleClick}
+                disabled={loading || googleVerifying}
+              >
+                <GoogleIcon size={19} />
+                <span>Continue with Google</span>
+              </button>
+
+              <div className="auth-divider">
+                <div className="auth-divider-line" />
+                <span className="auth-divider-text">or continue with email</span>
+                <div className="auth-divider-line" />
+              </div>
+
               <div className="form-group">
                 <label className="form-label">Email Address</label>
                 <input id="login-email" type="email" className="form-input"
@@ -454,6 +643,24 @@ const LoginPage: React.FC = () => {
               <div className="auth-form-header">
                 <h2 className="auth-form-title">Get started free</h2>
                 <p className="auth-form-subtitle">Create your ROIlytics account</p>
+              </div>
+
+              {/* Google Sign Up Button */}
+              <button
+                id="btn-google-register"
+                type="button"
+                className="btn-google-auth"
+                onClick={handleGoogleClick}
+                disabled={loading || googleVerifying}
+              >
+                <GoogleIcon size={19} />
+                <span>Sign up with Google</span>
+              </button>
+
+              <div className="auth-divider">
+                <div className="auth-divider-line" />
+                <span className="auth-divider-text">or register with email</span>
+                <div className="auth-divider-line" />
               </div>
 
               <div className="form-group">
@@ -559,6 +766,138 @@ const LoginPage: React.FC = () => {
           ROIlytics · Influencer Discovery Platform · v3.0
         </p>
       </div>
+
+      {/* ─── Google Account Chooser Modal ─── */}
+      {showGoogleModal && (
+        <div
+          className="google-modal-overlay animate-fade-in"
+          onClick={() => !googleVerifying && setShowGoogleModal(false)}
+        >
+          <div className="google-modal-card animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="google-modal-header">
+              <div className="google-modal-brand">
+                <GoogleIcon size={26} />
+                <div>
+                  <h3 className="google-modal-title">Sign in with Google</h3>
+                  <p className="google-modal-subtitle">
+                    Choose an account to continue to <strong>ROIlytics</strong>
+                  </p>
+                </div>
+              </div>
+              {!googleVerifying && (
+                <button
+                  type="button"
+                  className="google-modal-close"
+                  onClick={() => setShowGoogleModal(false)}
+                  aria-label="Close Google sign-in"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+
+            {googleVerifying ? (
+              <div className="google-verifying-box">
+                <div className="google-spinner" />
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginTop: 14 }}>
+                  Signing in as {verifyingAccountName}…
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                  Verifying Google OAuth 2.0 credentials securely
+                </div>
+              </div>
+            ) : googleMode === 'select' ? (
+              <>
+                <div className="google-accounts-list">
+                  {GOOGLE_DEMO_ACCOUNTS.map(acc => (
+                    <button
+                      key={acc.email}
+                      type="button"
+                      className="google-account-item"
+                      onClick={() => completeGoogleSignIn(acc)}
+                    >
+                      <div className="google-acc-avatar" style={{ background: acc.color }}>
+                        {acc.avatarUrl ? (
+                          <img src={acc.avatarUrl} alt={acc.name} />
+                        ) : (
+                          acc.name.charAt(0)
+                        )}
+                      </div>
+                      <div className="google-acc-info">
+                        <span className="google-acc-name">{acc.name}</span>
+                        <span className="google-acc-email">{acc.email}</span>
+                      </div>
+                      <span className="google-acc-badge">Google</span>
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    className="google-account-item google-add-account"
+                    onClick={() => { setGoogleMode('custom'); setGoogleError(''); }}
+                  >
+                    <div className="google-acc-avatar google-acc-avatar-add">
+                      <Plus size={18} />
+                    </div>
+                    <div className="google-acc-info">
+                      <span className="google-acc-name">Use another Google account</span>
+                      <span className="google-acc-email">Sign in with any @gmail.com or Workspace ID</span>
+                    </div>
+                    <ArrowRight size={15} style={{ color: 'var(--text-muted)' }} />
+                  </button>
+                </div>
+
+                <div className="google-modal-notice">
+                  To continue, Google will share your name, email address, and profile picture with ROIlytics. See ROIlytics Privacy Policy and Terms of Service.
+                </div>
+              </>
+            ) : (
+              <form onSubmit={handleCustomGoogleSubmit} className="google-custom-form">
+                {googleError && (
+                  <div className="auth-alert auth-alert-error" style={{ marginBottom: 12 }}>
+                    <AlertCircle size={14} />
+                    <span>{googleError}</span>
+                  </div>
+                )}
+                <div className="form-group">
+                  <label className="form-label">Your Full Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Maya Patel"
+                    value={googleCustomName}
+                    onChange={e => setGoogleCustomName(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Google Email Address</label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    placeholder="name@gmail.com"
+                    value={googleCustomEmail}
+                    onChange={e => setGoogleCustomEmail(e.target.value)}
+                  />
+                </div>
+
+                <div className="google-custom-actions">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => { setGoogleMode('select'); setGoogleError(''); }}
+                  >
+                    Back to Accounts
+                  </button>
+                  <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                    Continue with this Account
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

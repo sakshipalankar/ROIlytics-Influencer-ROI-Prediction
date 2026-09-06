@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore, pickColor } from '../../store/useAppStore';
 import { Menu, TrendingUp, LogOut, User, ChevronDown, Bookmark, Sun, Moon, HelpCircle } from 'lucide-react';
+import { GoogleIcon } from '../../pages/LoginPage';
 
 const TopNavbar: React.FC = () => {
   const { user, logout, toggleSidebar, sidebarOpen, shortlist, setActivePage, activePage, theme, toggleTheme } = useAppStore();
@@ -105,8 +106,17 @@ const TopNavbar: React.FC = () => {
           onClick={() => setDropdownOpen(p => !p)}
           style={{ '--avatar-color': avatarColor } as React.CSSProperties}
         >
-          <div className="user-avatar" style={{ background: avatarColor }}>
-            {initials}
+          <div className="user-avatar" style={{ background: avatarColor, overflow: 'hidden' }}>
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user?.username}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
+              />
+            ) : (
+              initials
+            )}
           </div>
           <div className="user-info-text">
             <span className="user-name">{user?.username}</span>
@@ -124,12 +134,29 @@ const TopNavbar: React.FC = () => {
           <div className="user-dropdown animate-scale-in">
             {/* Profile header */}
             <div className="user-dropdown-header">
-              <div className="user-avatar-lg" style={{ background: avatarColor }}>
-                {initials}
+              <div className="user-avatar-lg" style={{ background: avatarColor, overflow: 'hidden' }}>
+                {user?.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user?.username}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  initials
+                )}
               </div>
               <div>
-                <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>
-                  {user?.username}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>
+                    {user?.username}
+                  </span>
+                  {user?.provider === 'google' && (
+                    <span className="google-user-badge" title="Signed in with Google">
+                      <GoogleIcon size={12} />
+                      <span>Google</span>
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{user?.email}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>

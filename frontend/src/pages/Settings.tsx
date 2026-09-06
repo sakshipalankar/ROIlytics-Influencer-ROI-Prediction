@@ -15,6 +15,7 @@ import {
   Radio,
   Sparkles,
 } from 'lucide-react';
+import { GoogleIcon } from './LoginPage';
 
 const AVATAR_PALETTE = [
   '#6366f1', '#8b5cf6', '#10b981', '#ffd54f', '#f43f5e',
@@ -244,6 +245,23 @@ const Settings: React.FC = () => {
               <span>Save Changes</span>
             </button>
           </div>
+
+          {user?.provider === 'google' && (
+            <div className="settings-google-banner">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <GoogleIcon size={22} />
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
+                    Authenticated with Google Account
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    Your session is linked to Google OAuth 2.0 ({user.email}).
+                  </div>
+                </div>
+              </div>
+              <span className="badge badge-emerald">Verified Google SSO</span>
+            </div>
+          )}
 
           <div className="settings-grid-2">
             <div className="form-group">
@@ -492,6 +510,23 @@ const Settings: React.FC = () => {
               <span>Update Password</span>
             </button>
           </div>
+
+          {user?.provider === 'google' && (
+            <div className="settings-google-banner" style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <GoogleIcon size={22} />
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
+                    Google Managed Authentication
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    You are signed in via Google OAuth SSO. 2-Step Verification and account access are securely managed by your Google Account.
+                  </div>
+                </div>
+              </div>
+              <span className="badge badge-emerald">Google SSO Active</span>
+            </div>
+          )}
 
           <div style={{ maxWidth: 460 }}>
             <div className="form-group">

@@ -11,6 +11,8 @@ export interface AuthUser {
   email: string;
   avatarColor: string;
   joinedAt: string;
+  avatarUrl?: string;
+  provider?: 'email' | 'google';
 }
 
 const AVATAR_COLORS = [
