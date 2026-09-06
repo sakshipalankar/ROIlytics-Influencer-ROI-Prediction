@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Heart,
   ThumbsUp,
+  Zap,
 } from 'lucide-react';
 
 /* ── Simple local "auth" — stores in zustand/localStorage ── */
@@ -77,12 +78,6 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
 
   const strength = passwordStrength(password);
-
-  const fillDemo = (e: string, p: string) => {
-    setEmail(e);
-    setPassword(p);
-    setError('');
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,22 +205,66 @@ const LoginPage: React.FC = () => {
           </div>
         </div>
 
-        {/* High-impact platform stats */}
-        <div className="auth-stats-row">
-          {[
-            { value: '10,500+', label: 'Influencer Profiles' },
-            { value: '10',      label: 'Categories' },
-            { value: '17',      label: 'Countries' },
-            { value: '3.4x',    label: 'Avg Predicted ROI' },
-          ].map(s => (
-            <div className="auth-stat" key={s.label}>
-              <div className="auth-stat-value">{s.value}</div>
-              <div className="auth-stat-label">{s.label}</div>
+        {/* Live ROI Prediction Simulation Preview Widget */}
+        <div className="auth-roi-preview-card">
+          <div className="roi-preview-top">
+            <div className="roi-preview-badge">
+              <Zap size={13} />
+              <span>Live ROI Simulation</span>
             </div>
-          ))}
+            <div className="roi-preview-model-tag">
+              <span>Random Forest ML · 94% Fit</span>
+            </div>
+          </div>
+
+          <div className="roi-preview-metrics-grid">
+            <div className="roi-metric-box">
+              <span className="roi-metric-box-label">Campaign Budget</span>
+              <span className="roi-metric-box-val">₹50,000</span>
+            </div>
+            <div className="roi-metric-arrow">➔</div>
+            <div className="roi-metric-box">
+              <span className="roi-metric-box-label">Audience Reach</span>
+              <span className="roi-metric-box-val">142K</span>
+            </div>
+            <div className="roi-metric-arrow">➔</div>
+            <div className="roi-metric-box highlight">
+              <span className="roi-metric-box-label">Projected Revenue</span>
+              <span className="roi-metric-box-val revenue">₹1,85,000</span>
+            </div>
+            <div className="roi-metric-roi-pill">
+              <TrendingUp size={13} />
+              <span>3.70x ROI</span>
+            </div>
+          </div>
+
+          <div className="roi-progress-wrapper">
+            <div className="roi-progress-labels">
+              <span>Forecast Confidence: 92%</span>
+              <span>Optimal Multiplier Band: 3.2x – 4.1x</span>
+            </div>
+            <div className="roi-progress-bar">
+              <div className="roi-progress-fill" style={{ width: '78%' }} />
+            </div>
+          </div>
+
+          <div className="roi-preview-tags">
+            <span className="roi-preview-tag">
+              <Target size={12} color="var(--accent-primary)" />
+              Micro Tier (45K Followers)
+            </span>
+            <span className="roi-preview-tag">
+              <Heart size={12} color="#f43f5e" />
+              7.4% Authentic ER
+            </span>
+            <span className="roi-preview-tag">
+              <ShieldCheck size={12} color="#10b981" />
+              Verified Audience
+            </span>
+          </div>
         </div>
 
-        {/* Project Capability & Intelligence Cards (Replaced dummy handles) */}
+        {/* Project Capability & Intelligence Cards */}
         <div className="auth-cap-cards">
           <div className="auth-cap-card" style={{ animationDelay: '0.1s' }}>
             <div className="auth-cap-icon" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
@@ -279,6 +318,33 @@ const LoginPage: React.FC = () => {
           </div>
         </div>
 
+        {/* 3-Step Predictive Campaign Pipeline */}
+        <div className="auth-pipeline-flow">
+          <div className="auth-flow-item">
+            <div className="auth-flow-step">1</div>
+            <div className="auth-flow-content">
+              <strong>Creator Match</strong>
+              <span>Filter by engagement quality & niche fit</span>
+            </div>
+          </div>
+          <div className="auth-flow-arrow">➔</div>
+          <div className="auth-flow-item">
+            <div className="auth-flow-step">2</div>
+            <div className="auth-flow-content">
+              <strong>ML ROI Forecast</strong>
+              <span>Predict revenue multipliers before spending ₹1</span>
+            </div>
+          </div>
+          <div className="auth-flow-arrow">➔</div>
+          <div className="auth-flow-item">
+            <div className="auth-flow-step">3</div>
+            <div className="auth-flow-content">
+              <strong>Budget Allocate</strong>
+              <span>Simulate sensitivity curves for max profit</span>
+            </div>
+          </div>
+        </div>
+
         {/* Social & engagement floating ecosystem indicators */}
         <div className="auth-ecosystem-bar">
           <span className="auth-ecosystem-label">Audience Signals:</span>
@@ -325,25 +391,6 @@ const LoginPage: React.FC = () => {
               <div className="auth-form-header">
                 <h2 className="auth-form-title">Welcome back</h2>
                 <p className="auth-form-subtitle">Sign in to your ROIlytics account</p>
-              </div>
-
-              {/* Demo quick-login chips */}
-              <div className="demo-chips">
-                <span className="demo-chip-label">⚡ Quick Fill:</span>
-                <button
-                  type="button"
-                  className="demo-chip"
-                  onClick={() => fillDemo('demo@roilytics.ai', 'Password123!')}
-                >
-                  Demo Account
-                </button>
-                <button
-                  type="button"
-                  className="demo-chip"
-                  onClick={() => fillDemo('sarah.chen@glowbeauty.com', 'Password123!')}
-                >
-                  Sarah (Brand Mgr)
-                </button>
               </div>
 
               <div className="form-group">
@@ -501,6 +548,11 @@ const LoginPage: React.FC = () => {
               </p>
             </form>
           )}
+
+          <div className="auth-security-notice">
+            <ShieldCheck size={14} color="#10b981" />
+            <span>Enterprise-grade encryption · Meta Graph API Verified</span>
+          </div>
         </div>
 
         <p className="auth-footer-note">
