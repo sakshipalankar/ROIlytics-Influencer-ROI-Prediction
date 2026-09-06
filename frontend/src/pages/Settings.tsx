@@ -50,6 +50,19 @@ const Settings: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Google OAuth state
+  const [googleClientId, setGoogleClientId] = useState(
+    () => localStorage.getItem('roilytics_google_client_id') || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || ''
+  );
+  const [googleSaveMsg, setGoogleSaveMsg] = useState('');
+
+  const handleSaveGoogleClientId = (e: React.FormEvent) => {
+    e.preventDefault();
+    localStorage.setItem('roilytics_google_client_id', googleClientId.trim());
+    setGoogleSaveMsg('Google OAuth Client ID updated!');
+    setTimeout(() => setGoogleSaveMsg(''), 3000);
+  };
+
   const initials = username
     .split(' ')
     .map(w => w[0])
@@ -492,6 +505,49 @@ const Settings: React.FC = () => {
                   Configured for Business Discovery API. Add your <code>IG_ACCESS_TOKEN</code> in <code>.env</code> for custom live scraping.
                 </p>
               </div>
+            </div>
+
+            <div className="settings-api-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                <div className="settings-api-icon-wrap" style={{ background: 'rgba(66, 133, 244, 0.15)', color: '#4285F4' }}>
+                  <GoogleIcon size={22} />
+                </div>
+                <div className="settings-api-info" style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                    <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>
+                      Google OAuth 2.0 (Identity Services)
+                    </span>
+                    <span className={`badge ${googleClientId.trim() ? 'badge-emerald' : 'badge-indigo'}`}>
+                      {googleClientId.trim() ? 'Client ID Configured' : 'Setup Required'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+                    Powers real-time user authentication via official <code>accounts.google.com</code> popups with genuine Google profiles.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveGoogleClientId} style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                {googleSaveMsg && (
+                  <div className="auth-alert auth-alert-success" style={{ marginBottom: 12 }}>
+                    <CheckCircle2 size={14} />
+                    <span>{googleSaveMsg}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Enter Google Client ID (e.g. 12345-xxxx.apps.googleusercontent.com)"
+                    value={googleClientId}
+                    onChange={e => setGoogleClientId(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <button type="submit" className="btn btn-primary btn-sm">
+                    Save Key
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

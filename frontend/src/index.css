@@ -3346,4 +3346,142 @@ body {
   margin-top: 20px;
 }
 
+/* Real-Time Google OAuth Setup Body */
+.google-oauth-setup-body {
+  padding: 20px 24px 24px;
+}
+
+.google-oauth-steps-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.google-oauth-step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.google-ext-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4285f4;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.google-ext-link:hover {
+  color: #3b82f6;
+}
+
+.google-oauth-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0 0 10px 0;
+  line-height: 1.4;
+}
+
+.google-origin-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.google-origin-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.google-origin-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+
+.google-origin-pill code {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.btn-copy-origin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn-copy-origin:hover {
+  background: rgba(66, 133, 244, 0.15);
+  border-color: rgba(66, 133, 244, 0.4);
+  color: #4285f4;
+}
+
+.btn-google-launch {
+  width: 100%;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 18px;
+}
+
+.google-modal-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 14px 0;
+  position: relative;
+}
+
+.google-modal-divider::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  height: 1px;
+  background: var(--border);
+}
+
+.google-modal-divider span {
+  position: relative;
+  background: var(--bg-surface);
+  padding: 0 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.btn-google-demo-fallback {
+  width: 100%;
+  height: 38px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 
