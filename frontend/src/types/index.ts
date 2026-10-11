@@ -72,16 +72,6 @@ export interface ModelResultsResponse {
   training_samples: number;
 }
 
-export interface InstagramProfile {
-  username: string;
-  followers_count: number;
-  media_count: number;
-  biography: string | null;
-  avg_likes: number;
-  avg_comments: number;
-  profile_picture_url: string | null;
-  website: string | null;
-}
 
 // ─── Influencer Discovery ──────────────────────────────────────────────────
 export type Category =
@@ -97,19 +87,16 @@ export interface BrandProfile {
   category: Category;
   budget: number;
   goal: CampaignGoal;
-  country: string;
   min_followers: number;
   max_followers: number;
   min_er: number;
-  follower_tier: FollowerTier;
-  is_verified: boolean | null;
   limit: number;
   offset: number;
   sort_by: SortBy;
 }
 
 export interface InfluencerCard {
-  id: number;
+  id?: number;
   username: string;
   full_name: string;
   category: string;
@@ -121,26 +108,38 @@ export interface InfluencerCard {
   engagement_rate: number;
   posting_frequency: number;
   estimated_reach: number;
-  is_verified: boolean;
-  country: string;
-  follower_tier: FollowerTier;
-  audience_female_pct: number;
-  audience_male_pct: number;
+  audience_female_pct?: number | null;
+  audience_male_pct?: number | null;
   audience_age_18_24?: number;
   audience_age_25_34?: number;
   audience_age_35_44?: number;
   fit_score: number;
-  roi: number;
-  spend: number;
-  revenue: number;
+  roi: number | null;
+  spend: number | null;
+  revenue: number | null;
   profile_pic_url: string;
+  profile_url?: string;
+  profile_screenshot?: string;
+  roi_source?: string;
+  is_brand?: number;
+  er_suspect?: number;
+  source: string;
+  reliable: boolean;
+  warnings: string[];
+  note?: string;
+  is_verified?: boolean;
+  country?: string;
+  follower_tier?: string;
+  fetched_at?: string;
 }
 
 export interface DiscoverResponse {
   influencers: InfluencerCard[];
+  unreliable_influencers: InfluencerCard[];
   total_found: number;
   category: string;
   budget_tier: string;
+  notice?: string;
 }
 
 export interface DatasetStats {

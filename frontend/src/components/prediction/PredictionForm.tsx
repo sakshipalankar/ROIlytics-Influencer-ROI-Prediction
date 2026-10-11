@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import type { AnalyticsOverview, CreatorProfile } from '../../types';
+import React, { useState } from 'react';
+import type { AnalyticsOverview } from '../../types';
 import { predictSingle } from '../../api/client';
 import { useAppStore } from '../../store/useAppStore';
 import { Zap, RefreshCw } from 'lucide-react';
 
-const CATEGORIES = ['Fitness', 'Fashion', 'Tech', 'Food', 'Travel', 'Lifestyle'];
+const CATEGORIES = [
+  'Fitness', 'Fashion', 'Tech', 'Food', 'Travel',
+  'Lifestyle', 'Beauty', 'Gaming', 'Finance', 'Education'
+];
 
 interface Props {
   overview: AnalyticsOverview | null;
@@ -24,29 +27,10 @@ function pct(val: number, min: number, max: number) {
   return Math.round(((val - min) / (max - min)) * 100);
 }
 
-const PredictionForm: React.FC<Props> = ({ overview }) => {
+const PredictionForm: React.FC<Props> = () => {
   const { setPredictionResult, setIsPredicting, isPredicting, setSelectedPreset } = useAppStore();
   const [form, setForm] = useState(DEFAULT_FORM);
   const [error, setError] = useState<string | null>(null);
-  const [presetIdx, setPresetIdx] = useState<number>(-1);
-
-  const profiles: CreatorProfile[] = overview?.profiles ?? [];
-
-  useEffect(() => {
-    if (presetIdx >= 0 && profiles[presetIdx]) {
-      const p = profiles[presetIdx];
-      setForm(prev => ({
-        ...prev,
-        followers_count: p.followers_count,
-        media_count: p.media_count,
-        avg_likes: p.avg_likes,
-        avg_comments: p.avg_comments,
-        category: p.category,
-        posting_frequency: p.posting_frequency,
-      }));
-      setSelectedPreset(p);
-    }
-  }, [presetIdx]);
 
   const update = (key: keyof typeof form, val: number | string) =>
     setForm(prev => ({ ...prev, [key]: val }));
@@ -67,36 +51,12 @@ const PredictionForm: React.FC<Props> = ({ overview }) => {
 
   const handleReset = () => {
     setForm(DEFAULT_FORM);
-    setPresetIdx(-1);
     setPredictionResult(null);
     setSelectedPreset(null);
   };
 
   return (
     <form onSubmit={handleSubmit} id="prediction-form">
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div className="card-header">
-          <span className="card-title">⚡ Creator Preset</span>
-        </div>
-        <div className="card-body">
-          <div className="form-group">
-            <label className="form-label">Load a Real Creator Profile</label>
-            <select
-              id="preset-select"
-              className="form-select"
-              value={presetIdx}
-              onChange={e => setPresetIdx(Number(e.target.value))}
-            >
-              <option value={-1}>— Manual entry —</option>
-              {profiles.map((p, i) => (
-                <option key={p.name} value={i}>
-                  {p.name} ({p.category} · {p.followers_count.toLocaleString()} followers)
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
 
       <div className="card">
         <div className="card-header">

@@ -1,12 +1,13 @@
-"""ML inference service — loads best_model.pkl once at startup and serves predictions."""
+"""ML inference service — loads best_model.pkl once at startup and serves predictions.
+
+The model pickle contains: model (RandomForestRegressor), scaler (StandardScaler),
+model_name, feature_columns.  The scaler is applied at inference in feature_columns order.
+"""
 from __future__ import annotations
 
-import os
-import sys
 import json
 import logging
 from pathlib import Path
-from functools import lru_cache
 from typing import Any
 
 import joblib
@@ -19,13 +20,8 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parents[3]  # backend/app/services -> project root
 MODEL_PATH = PROJECT_ROOT / "models" / "best_model.pkl"
 RESULTS_PATH = PROJECT_ROOT / "models" / "model_results.json"
-BENCHMARK_PATH = PROJECT_ROOT / "data" / "instagram_profiles_benchmark.csv"
-RAW_PATH = PROJECT_ROOT / "data" / "instagram_profiles_raw.csv"
 
-CATEGORY_MAP = {
-    "Fitness": 0, "Fashion": 1, "Tech": 2, "Food": 3, "Travel": 4, "Lifestyle": 5
-}
-BUCKET_MAP = {"Nano": 0, "Micro": 1, "Macro": 2, "Mega": 3}
+from .constants import CATEGORY_MAP, BUCKET_MAP, CATEGORY_ER_BENCHMARKS
 
 
 def _assign_bucket(followers: int) -> str:
@@ -60,9 +56,14 @@ class PredictorService:
             raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
         data = joblib.load(MODEL_PATH)
         self.model = data["model"]
+        self.scaler = data.get("scaler")  # StandardScaler — apply before predict
         self.feature_columns: list[str] = data["feature_columns"]
         self.model_name: str = data.get("model_name", "Random Forest")
-        logger.info(f"Loaded model: {self.model_name} | features: {self.feature_columns}")
+        logger.info(
+            "Loaded model: %s | features: %s | scaler: %s",
+            self.model_name, self.feature_columns,
+            type(self.scaler).__name__ if self.scaler else "None",
+        )
 
     @classmethod
     def get(cls) -> "PredictorService":
@@ -117,13 +118,18 @@ class PredictorService:
             followers_count, media_count, avg_likes, avg_comments,
             category, posting_frequency, spend
         )
+        # Apply scaler if present (trained with StandardScaler)
+        if self.scaler is not None:
+            X = pd.DataFrame(self.scaler.transform(X), columns=self.feature_columns)
+
         roi = float(self.model.predict(X)[0])
         revenue = spend * (1 + roi)
         profit = revenue - spend
         engagement_rate = (avg_likes + avg_comments) / max(followers_count, 1)
         tier, tier_color = _tier_label(roi)
         return {
-            "roi": round(roi, 4),
+            "estimated_roi": round(roi, 4),
+            "roi": round(roi, 4),  # backward compat
             "tier": tier,
             "tier_color": tier_color,
             "predicted_revenue": round(revenue, 2),
@@ -158,20 +164,25 @@ class PredictorService:
 
     def get_model_results(self) -> dict:
         models = []
+        training_samples: int | None = None
+
         if RESULTS_PATH.exists():
             with open(RESULTS_PATH) as f:
                 data = json.load(f)
                 if isinstance(data, list):
+                    training_samples = len(data) if not any("Model" in (d if isinstance(d, dict) else {}) for d in data) else None
                     for item in data:
-                        models.append({
-                            "name": str(item.get("Model", "Unknown")),
-                            "r2": float(item.get("R2", 0.0)),
-                            "mae": float(item.get("MAE", 0.0)),
-                            "rmse": float(item.get("RMSE", 0.0)),
-                            "cv_r2": float(item.get("CV_R2", item.get("R2", 0.0))),
-                        })
+                        if isinstance(item, dict) and "Model" in item:
+                            models.append({
+                                "name": str(item.get("Model", "Unknown")),
+                                "r2": float(item.get("R2", 0.0)),
+                                "mae": float(item.get("MAE", 0.0)),
+                                "rmse": float(item.get("RMSE", 0.0)),
+                                "cv_r2": float(item.get("CV_R2", item.get("R2", 0.0))),
+                            })
                 elif isinstance(data, dict):
                     models = data.get("models", [])
+                    training_samples = data.get("training_samples")
 
         feat_imp = []
         if hasattr(self.model, "feature_importances_"):
@@ -183,49 +194,109 @@ class PredictorService:
             "best_model": self.model_name,
             "models": models,
             "feature_importance": feat_imp,
-            "training_samples": 10500,
+            "training_samples": training_samples,
         }
 
     def get_overview(self) -> dict:
-        """Return analytics overview from benchmark/raw data."""
-        # Try benchmark first, fall back to raw
-        for path in [BENCHMARK_PATH, RAW_PATH]:
-            if path.exists():
-                df = pd.read_csv(path)
-                break
-        else:
-            return self._synthetic_overview()
+        """Build analytics overview from clean scraped data (influencers.db / influencers_clean.csv)."""
+        csv_path = PROJECT_ROOT / "data" / "influencers_clean.csv"
+        db_path = PROJECT_ROOT / "data" / "influencers.db"
+
+        profiles_data: list[dict[str, Any]] = []
+
+        # Try SQLite database first
+        if db_path.exists():
+            import sqlite3
+            try:
+                conn = sqlite3.connect(str(db_path))
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute("SELECT * FROM influencers WHERE (is_brand = 0 OR is_brand IS NULL) AND (er_suspect = 0 OR er_suspect IS NULL)").fetchall()
+                profiles_data = [dict(r) for r in rows]
+                conn.close()
+            except Exception as e:
+                logger.warning(f"Could not read influencers.db for overview: {e}")
+
+        # Fallback to CSV if DB empty
+        if not profiles_data and csv_path.exists():
+            try:
+                df = pd.read_csv(csv_path)
+                if "is_brand" in df.columns:
+                    df = df[(df["is_brand"] == 0) | (df["is_brand"].isna())]
+                if "er_suspect" in df.columns:
+                    df = df[(df["er_suspect"] == 0) | (df["er_suspect"].isna())]
+                profiles_data = df.to_dict(orient="records")
+            except Exception as e:
+                logger.warning(f"Could not read influencers_clean.csv for overview: {e}")
+
+        if not profiles_data:
+            return {
+                "total_profiles": 0,
+                "avg_roi": 0.0,
+                "avg_engagement_rate": 0.0,
+                "top_category": "—",
+                "profiles": [],
+                "category_distribution": {},
+                "roi_distribution": [],
+            }
 
         profiles = []
-        for _, row in df.iterrows():
+        roi_values = []
+        er_values = []
+        categories: list[str] = []
+
+        for p in profiles_data:
+            posting_freq = p.get("posting_frequency") or 3.5
             profiles.append({
-                "name": str(row.get("username", row.get("name", "unknown"))),
-                "category": str(row.get("category", "Lifestyle")),
-                "followers_count": int(row.get("followers_count", 0)),
-                "media_count": int(row.get("media_count", 0)),
-                "avg_likes": float(row.get("avg_likes", 0)),
-                "avg_comments": float(row.get("avg_comments", 0)),
-                "posting_frequency": float(row.get("posting_frequency", 3.5)),
+                "name": p.get("username", "unknown"),
+                "category": p.get("category") or "Uncategorised",
+                "followers_count": int(p.get("followers_count") or 0),
+                "media_count": int(p.get("media_count") or 0),
+                "avg_likes": float(p.get("avg_likes") or 0),
+                "avg_comments": float(p.get("avg_comments") or 0),
+                "posting_frequency": float(posting_freq),
             })
 
-        roi_col = df.get("roi", pd.Series(dtype=float))
-        er_col = df.get("engagement_rate", pd.Series(dtype=float))
-        cat_col = df.get("category", pd.Series(dtype=str))
+            er = float(p.get("engagement_rate") or 0.0)
+            er_values.append(er)
+            cat = p.get("category") or "Uncategorised"
+            categories.append(cat)
 
-        avg_roi = float(roi_col.mean()) if not roi_col.empty else 1.5
-        avg_er = float(er_col.mean()) if not er_col.empty else 0.035
-        top_cat = (
-            cat_col.value_counts().idxmax() if not cat_col.empty else "Lifestyle"
-        )
-        cat_dist = cat_col.value_counts().to_dict() if not cat_col.empty else {}
+            roi_val = p.get("roi")
+            if roi_val is not None:
+                roi_values.append(float(roi_val))
+            else:
+                # Compute estimated ROI fallback
+                try:
+                    result = self.predict(
+                        followers_count=int(p.get("followers_count") or 0),
+                        media_count=int(p.get("media_count") or 0),
+                        avg_likes=float(p.get("avg_likes") or 0),
+                        avg_comments=float(p.get("avg_comments") or 0),
+                        category=cat if cat in CATEGORY_MAP else "Lifestyle",
+                        posting_frequency=float(posting_freq),
+                        spend=float(p.get("spend") or 5000),
+                    )
+                    roi_values.append(result["roi"])
+                except Exception:
+                    roi_values.append(0.0)
 
+        avg_roi = sum(roi_values) / len(roi_values) if roi_values else 0.0
+        avg_er = sum(er_values) / len(er_values) if er_values else 0.0
+
+        # Category distribution
+        cat_dist: dict[str, int] = {}
+        for c in categories:
+            cat_dist[c] = cat_dist.get(c, 0) + 1
+        top_cat = max(cat_dist, key=cat_dist.get) if cat_dist else "—"  # type: ignore[arg-type]
+
+        # ROI distribution buckets
         roi_buckets = []
-        if not roi_col.empty:
+        if roi_values:
             for label, lo, hi in [
                 ("Negative", -99, 0), ("Break-even", 0, 1),
                 ("Good", 1, 2), ("Excellent", 2, 3), ("Outstanding", 3, 99),
             ]:
-                count = int(((roi_col >= lo) & (roi_col < hi)).sum())
+                count = sum(1 for r in roi_values if lo <= r < hi)
                 roi_buckets.append({"label": label, "count": count})
 
         return {
@@ -236,24 +307,4 @@ class PredictorService:
             "profiles": profiles,
             "category_distribution": cat_dist,
             "roi_distribution": roi_buckets,
-        }
-
-    def _synthetic_overview(self) -> dict:
-        return {
-            "total_profiles": 28,
-            "avg_roi": 1.82,
-            "avg_engagement_rate": 0.038,
-            "top_category": "Lifestyle",
-            "profiles": [],
-            "category_distribution": {
-                "Lifestyle": 8, "Tech": 5, "Fitness": 5,
-                "Fashion": 4, "Food": 4, "Travel": 2
-            },
-            "roi_distribution": [
-                {"label": "Negative", "count": 2},
-                {"label": "Break-even", "count": 4},
-                {"label": "Good", "count": 10},
-                {"label": "Excellent", "count": 8},
-                {"label": "Outstanding", "count": 4},
-            ],
         }

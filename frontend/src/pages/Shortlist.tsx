@@ -14,12 +14,12 @@ const Shortlist: React.FC = () => {
   const handleExport = () => {
     const headers = [
       'Username','Full Name','Category','Followers','Engagement Rate',
-      'Avg Likes','Avg Comments','Fit Score','Predicted ROI','Country','Tier'
+      'Avg Likes','Avg Comments','Fit Score','Model-estimated ROI','Country','Tier'
     ];
     const rows = shortlist.map(inf => [
       inf.username, inf.full_name, inf.category,
       inf.followers_count, (inf.engagement_rate * 100).toFixed(2) + '%',
-      inf.avg_likes, inf.avg_comments, inf.fit_score, inf.roi.toFixed(2) + 'x',
+      inf.avg_likes, inf.avg_comments, inf.fit_score, inf.roi !== null && inf.roi !== undefined ? inf.roi.toFixed(2) + 'x' : 'N/A',
       inf.country, inf.follower_tier,
     ]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
@@ -105,7 +105,9 @@ const Shortlist: React.FC = () => {
                       <button
                         className="btn btn-ghost btn-sm"
                         style={{ padding: '2px 6px', fontSize: 10 }}
-                        onClick={() => removeFromShortlist(inf.id)}
+                        onClick={() => {
+                          if (inf.id != null) removeFromShortlist(inf.id);
+                        }}
                       >
                         <X size={10} /> Remove
                       </button>
@@ -128,10 +130,13 @@ const Shortlist: React.FC = () => {
                   best: (vals: number[]) => vals.indexOf(Math.max(...vals)),
                 },
                 {
-                  label: '💰 Pred. ROI',
+                  label: <span title="Model-estimated ROI via scikit-learn">💰 Model-estimated ROI ℹ️</span>,
                   key: 'roi',
-                  fmt: (v: number) => <span style={{ fontWeight: 700, color: v >= 1.5 ? '#10b981' : '#f59e0b' }}>{v.toFixed(2)}x</span>,
-                  best: (vals: number[]) => vals.indexOf(Math.max(...vals)),
+                  fmt: (v: number | null) => <span style={{ fontWeight: 700, color: v === null ? '#94a3b8' : v >= 1.5 ? '#10b981' : '#f59e0b' }}>{v !== null && v !== undefined ? `${v.toFixed(2)}x` : 'N/A'}</span>,
+                  best: (vals: (number | null)[]) => {
+                    const valid = vals.map(v => v ?? -999);
+                    return valid.indexOf(Math.max(...valid));
+                  },
                 },
                 {
                   label: '👥 Followers',
@@ -186,7 +191,7 @@ const Shortlist: React.FC = () => {
                 const numVals = vals.every(v => typeof v === 'number') ? (vals as number[]) : null;
                 const bestIdx = numVals ? row.best(numVals) : -1;
                 return (
-                  <tr key={row.label}>
+                  <tr key={row.key}>
                     <td style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: 13 }}>{row.label}</td>
                     {shortlist.map((inf, i) => (
                       <td

@@ -9,6 +9,8 @@ import { TrendingUp } from 'lucide-react';
 const Discover: React.FC = () => {
   const {
     brandProfile, discoveryResults, setDiscoveryResults,
+    unreliableResults, setUnreliableResults,
+    discoveryNotice, setDiscoveryNotice,
     isDiscovering, setIsDiscovering, setDetailInfluencer,
     shortlist, setActivePage
   } = useAppStore();
@@ -21,9 +23,13 @@ const Discover: React.FC = () => {
     setSearchError(null);
     setHasSearched(true);
     setDiscoveryResults([]);
+    setUnreliableResults([]);
+    setDiscoveryNotice(null);
     try {
       const resp = await discoverInfluencers({ ...brandProfile, limit: 30 });
       setDiscoveryResults(resp.influencers || []);
+      setUnreliableResults(resp.unreliable_influencers || []);
+      setDiscoveryNotice(resp.notice || null);
     } catch (err: any) {
       console.error('Discovery failed:', err);
       setSearchError(err?.response?.data?.detail || err?.message || 'Failed to score influencers.');
@@ -57,12 +63,12 @@ const Discover: React.FC = () => {
       )}
 
       {/* Empty results after search */}
-      {hasSearched && !isDiscovering && !searchError && discoveryResults.length === 0 && (
+      {hasSearched && !isDiscovering && !searchError && discoveryResults.length === 0 && unreliableResults.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px', marginTop: 24 }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
           <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>No Influencers Matched All Filters</h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: 13, maxWidth: 440, margin: '0 auto 16px' }}>
-            Try setting <strong>Country</strong> or <strong>Follower Tier</strong> to <em>"All"</em> to see top performers across all tiers.
+            Try adjusting your search criteria or adding more influencers to the database.
           </p>
           <button className="btn btn-primary btn-sm" onClick={handleSearch}>
             Refresh Results
@@ -71,7 +77,7 @@ const Discover: React.FC = () => {
       )}
 
       {/* ─── Results Section (Appears when searching or results exist) ─── */}
-      {(isDiscovering || discoveryResults.length > 0) && (
+      {(isDiscovering || discoveryResults.length > 0 || unreliableResults.length > 0) && (
         <main className="discover-results" style={{ marginTop: 24 }}>
           {/* Loading */}
           {isDiscovering && (
@@ -107,18 +113,24 @@ const Discover: React.FC = () => {
                 )}
               </div>
 
+              {discoveryNotice && (
+                <div className="auth-alert auth-alert-error" style={{ marginTop: 16, marginBottom: 16 }}>
+                  <span>⚠️ {discoveryNotice}</span>
+                </div>
+              )}
+
               {/* Top 3 highlight */}
               <div className="top3-banner">
                 <TrendingUp size={16} style={{ color: '#f59e0b' }} />
                 <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Ranked by <strong>Fit Score</strong> — combining engagement rate, follower tier, predicted ROI, and campaign goal alignment
+                  Ranked by <strong>Fit Score</strong> — combining engagement rate, predicted ROI, and campaign goal alignment
                 </span>
               </div>
 
               {/* Card grid */}
               <div className="influencer-grid">
                 {discoveryResults.map((inf, idx) => (
-                  <div key={inf.id} style={{ position: 'relative' }}>
+                  <div key={inf.id || inf.username} style={{ position: 'relative' }}>
                     {idx < 3 && (
                       <div className="rank-badge">#{idx + 1}</div>
                     )}
@@ -130,6 +142,30 @@ const Discover: React.FC = () => {
                 ))}
               </div>
             </>
+          )}
+
+          {/* Unreliable Results */}
+          {!isDiscovering && unreliableResults.length > 0 && (
+            <div style={{ marginTop: 40 }}>
+              <div style={{ marginBottom: 16 }}>
+                <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--text-secondary)' }}>
+                  Not Enough Data ({unreliableResults.length})
+                </span>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                  These profiles are missing data or have too few followers/posts for reliable ROI prediction.
+                </p>
+              </div>
+              <div className="influencer-grid" style={{ opacity: 0.7 }}>
+                {unreliableResults.map((inf) => (
+                  <div key={inf.id || inf.username}>
+                    <InfluencerCardComponent
+                      influencer={inf}
+                      onViewDetail={setDetailInfluencer}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </main>
       )}

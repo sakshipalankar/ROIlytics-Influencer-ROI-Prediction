@@ -23,7 +23,7 @@ const HowItWorks: React.FC = () => {
       title: 'Audience & Engagement Extraction',
       icon: Database,
       color: '#38bdf8',
-      desc: 'Connects to Instagram Graph API (Business Discovery) to extract genuine profile attributes: follower counts, media frequency, average likes, and comments.',
+      desc: 'Ingests real public Instagram profile attributes: follower counts, media frequency, average likes, and comments from real creator posts.',
       details: [
         'Calculates real engagement rate: ER = ((Likes + Comments) / Followers) × 100',
         'Profiles categorized across 10 distinct industry niches',

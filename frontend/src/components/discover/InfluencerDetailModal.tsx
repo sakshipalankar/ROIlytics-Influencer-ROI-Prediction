@@ -21,8 +21,8 @@ const InfluencerDetailModal: React.FC = () => {
   const inf = detailInfluencer;
   if (!inf) return null;
 
-  const isInShortlist = shortlist.some(s => s.id === inf.id);
-  const tierColor = TIER_COLORS[inf.follower_tier] ?? '#6366f1';
+  const isInShortlist = inf.id != null && shortlist.some(s => s.id === inf.id);
+  const tierColor = (inf.follower_tier ? TIER_COLORS[inf.follower_tier] : undefined) ?? '#6366f1';
 
   const fitColor = inf.fit_score >= 75 ? '#10b981' : inf.fit_score >= 55 ? '#6366f1' : '#f59e0b';
   const gaugeData = [{ name: 'Fit', value: inf.fit_score }];
@@ -105,41 +105,43 @@ const InfluencerDetailModal: React.FC = () => {
               </div>
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', marginTop: 4 }}>
-              Pred. ROI: <strong style={{ color: '#10b981' }}>{inf.roi.toFixed(2)}x</strong>
+              Model-estimated ROI <span title="Model-estimated ROI via scikit-learn">ℹ️</span>: <strong style={{ color: '#10b981' }}>{inf.roi !== null && inf.roi !== undefined ? `${inf.roi.toFixed(2)}x` : 'N/A'}</strong>
             </div>
           </div>
 
           {/* Audience demographics */}
-          <div className="card" style={{ padding: 16 }}>
-            <div className="card-title" style={{ marginBottom: 12 }}>👥 Audience Split</div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                <span style={{ color: '#ec4899' }}>Female {Math.round(inf.audience_female_pct * 100)}%</span>
-                <span style={{ color: '#38bdf8' }}>Male {Math.round(inf.audience_male_pct * 100)}%</span>
-              </div>
-              <div style={{ height: 8, borderRadius: 4, background: '#38bdf8', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${inf.audience_female_pct * 100}%`, background: '#ec4899', borderRadius: 4 }} />
-              </div>
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Age distribution</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {[
-                { label: '18–24', val: inf.audience_age_18_24 ?? 0.45, color: '#6366f1' },
-                { label: '25–34', val: inf.audience_age_25_34 ?? 0.35, color: '#8b5cf6' },
-                { label: '35–44', val: inf.audience_age_35_44 ?? 0.20, color: '#a78bfa' },
-              ].map(a => (
-                <div key={a.label}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>{a.label}</span>
-                    <span style={{ color: a.color, fontWeight: 700 }}>{Math.round((a.val ?? 0) * 100)}%</span>
-                  </div>
-                  <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.05)' }}>
-                    <div style={{ height: '100%', width: `${(a.val ?? 0) * 100}%`, background: a.color, borderRadius: 3 }} />
-                  </div>
+          {inf.audience_female_pct != null && inf.audience_male_pct != null && (
+            <div className="card" style={{ padding: 16 }}>
+              <div className="card-title" style={{ marginBottom: 12 }}>👥 Audience Split</div>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                  <span style={{ color: '#ec4899' }}>Female {Math.round(inf.audience_female_pct * 100)}%</span>
+                  <span style={{ color: '#38bdf8' }}>Male {Math.round(inf.audience_male_pct * 100)}%</span>
                 </div>
-              ))}
+                <div style={{ height: 8, borderRadius: 4, background: '#38bdf8', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${inf.audience_female_pct * 100}%`, background: '#ec4899', borderRadius: 4 }} />
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Age distribution</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {[
+                  { label: '18–24', val: inf.audience_age_18_24 ?? 0.45, color: '#6366f1' },
+                  { label: '25–34', val: inf.audience_age_25_34 ?? 0.35, color: '#8b5cf6' },
+                  { label: '35–44', val: inf.audience_age_35_44 ?? 0.20, color: '#a78bfa' },
+                ].map(a => (
+                  <div key={a.label}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>{a.label}</span>
+                      <span style={{ color: a.color, fontWeight: 700 }}>{Math.round((a.val ?? 0) * 100)}%</span>
+                    </div>
+                    <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.05)' }}>
+                      <div style={{ height: '100%', width: `${(a.val ?? 0) * 100}%`, background: a.color, borderRadius: 3 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -147,7 +149,12 @@ const InfluencerDetailModal: React.FC = () => {
           <button
             className={`btn ${isInShortlist ? 'btn-secondary' : 'btn-primary'}`}
             style={{ flex: 1, height: 44 }}
-            onClick={() => isInShortlist ? removeFromShortlist(inf.id) : addToShortlist(inf)}
+            onClick={() => {
+              if (inf.id != null) {
+                if (isInShortlist) removeFromShortlist(inf.id);
+                else addToShortlist(inf);
+              }
+            }}
           >
             {isInShortlist
               ? <><BookmarkCheck size={16} /> Remove from Shortlist</>

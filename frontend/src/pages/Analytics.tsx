@@ -43,7 +43,7 @@ const Analytics: React.FC = () => {
             <div className="kpi-sub">Training dataset</div>
           </div>
           <div className="kpi-card" style={{ '--kpi-accent': '#10b981' } as React.CSSProperties}>
-            <div className="kpi-label">Avg ROI</div>
+            <div className="kpi-label" title="Model-estimated ROI via scikit-learn">Model-est. ROI ℹ️</div>
             <div className="kpi-value">{overview.avg_roi.toFixed(2)}x</div>
             <div className="kpi-sub">Across all profiles</div>
           </div>
@@ -102,6 +102,9 @@ const Analytics: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+              <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5, background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: 6 }}>
+                ℹ️ <strong>Category Extrapolation Note:</strong> Base model was trained on Fitness, Fashion, Tech, Food, Travel, and Lifestyle. Projections for Beauty, Gaming, Finance, and Education are extrapolated using niche-specific benchmark engagement baselines.
+              </div>
             </div>
           </div>
         ) : (

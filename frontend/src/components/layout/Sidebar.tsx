@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import {
-  Search, BarChart3, Database, Bookmark, Star, X, HelpCircle, Settings,
+  Search, BarChart3, Database, Bookmark, Star, X, HelpCircle, Settings
 } from 'lucide-react';
 
 const NAV_ITEMS = [

@@ -70,6 +70,10 @@ interface AppState {
   // Discovery results
   discoveryResults: InfluencerCard[];
   setDiscoveryResults: (r: InfluencerCard[]) => void;
+  unreliableResults: InfluencerCard[];
+  setUnreliableResults: (r: InfluencerCard[]) => void;
+  discoveryNotice: string | null;
+  setDiscoveryNotice: (n: string | null) => void;
   isDiscovering: boolean;
   setIsDiscovering: (v: boolean) => void;
 
@@ -90,15 +94,12 @@ interface AppState {
 
 const DEFAULT_BRAND: BrandProfile = {
   brand_name: '',
-  category: 'Fitness',
+  category: 'Lifestyle',
   budget: 5000,
   goal: 'awareness',
-  country: 'All',
   min_followers: 0,
   max_followers: 999999999,
   min_er: 0,
-  follower_tier: 'All',
-  is_verified: null,
   limit: 20,
   offset: 0,
   sort_by: 'fit_score',
@@ -151,6 +152,10 @@ export const useAppStore = create<AppState>()(
       // Discovery
       discoveryResults: [],
       setDiscoveryResults: (r) => set({ discoveryResults: r }),
+      unreliableResults: [],
+      setUnreliableResults: (r) => set({ unreliableResults: r }),
+      discoveryNotice: null,
+      setDiscoveryNotice: (n) => set({ discoveryNotice: n }),
       isDiscovering: false,
       setIsDiscovering: (v) => set({ isDiscovering: v }),
 

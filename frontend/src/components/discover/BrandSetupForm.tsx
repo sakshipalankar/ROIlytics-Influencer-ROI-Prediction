@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import type { BrandProfile, Category, FollowerTier, CampaignGoal } from '../../types';
+import type { BrandProfile, Category, CampaignGoal } from '../../types';
 import { Zap } from 'lucide-react';
 
 const CATEGORIES: Category[] = [
@@ -17,27 +17,6 @@ const GOALS: { value: CampaignGoal; label: string; desc: string; icon: string }[
   { value: 'awareness',  label: 'Brand Awareness',  desc: 'Maximize reach & impressions', icon: '📢' },
   { value: 'engagement', label: 'Engagement',        desc: 'Drive likes & comments',       icon: '❤️' },
   { value: 'sales',      label: 'Sales & ROI',       desc: 'Maximize revenue multiplier',  icon: '💰' },
-];
-
-const TIERS: { value: FollowerTier; label: string }[] = [
-  { value: 'All',   label: 'All Tiers' },
-  { value: 'Nano',  label: 'Nano (1K–10K)' },
-  { value: 'Micro', label: 'Micro (10K–100K)' },
-  { value: 'Macro', label: 'Macro (100K–1M)' },
-  { value: 'Mega',  label: 'Mega (1M+)' },
-];
-
-const COUNTRIES = [
-  { value: 'All', label: '🌍 All Countries' },
-  { value: 'US',  label: '🇺🇸 United States' },
-  { value: 'IN',  label: '🇮🇳 India' },
-  { value: 'GB',  label: '🇬🇧 United Kingdom' },
-  { value: 'CA',  label: '🇨🇦 Canada' },
-  { value: 'AU',  label: '🇦🇺 Australia' },
-  { value: 'DE',  label: '🇩🇪 Germany' },
-  { value: 'FR',  label: '🇫🇷 France' },
-  { value: 'BR',  label: '🇧🇷 Brazil' },
-  { value: 'JP',  label: '🇯🇵 Japan' },
 ];
 
 const BUDGET_PRESETS = [5000, 25000, 50000, 100000, 250000];
@@ -155,30 +134,6 @@ const BrandSetupForm: React.FC<Props> = ({ onSearch }) => {
       {/* Targeting Filters Bar */}
       <div className="bsh-filters-bar">
         <div className="bsh-filter-item">
-          <label className="bsh-filter-label">Follower Tier</label>
-          <select
-            id="tier-select"
-            className="form-select bsh-select"
-            value={brandProfile.follower_tier}
-            onChange={e => update({ follower_tier: e.target.value as any })}
-          >
-            {TIERS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-        </div>
-
-        <div className="bsh-filter-item">
-          <label className="bsh-filter-label">Country</label>
-          <select
-            id="country-select"
-            className="form-select bsh-select"
-            value={brandProfile.country}
-            onChange={e => update({ country: e.target.value })}
-          >
-            {COUNTRIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
-        </div>
-
-        <div className="bsh-filter-item">
           <label className="bsh-filter-label">Sort Results By</label>
           <select
             id="sort-by-select"
@@ -191,19 +146,6 @@ const BrandSetupForm: React.FC<Props> = ({ onSearch }) => {
             <option value="engagement_rate">❤️ Engagement Rate</option>
             <option value="followers">👥 Followers</option>
           </select>
-        </div>
-
-        <div className="bsh-filter-item bsh-check-item">
-          <label className="bsh-checkbox-label">
-            <input
-              type="checkbox"
-              id="verified-check"
-              checked={brandProfile.is_verified === true}
-              onChange={e => update({ is_verified: e.target.checked ? true : null })}
-              className="bsh-checkbox"
-            />
-            <span>Verified accounts only ✓</span>
-          </label>
         </div>
       </div>
 

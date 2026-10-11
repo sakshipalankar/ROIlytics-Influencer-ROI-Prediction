@@ -15,7 +15,8 @@ from ..services.predictor import PredictorService
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/predict", tags=["predict"])
 
-CATEGORIES = ["Fitness", "Fashion", "Tech", "Food", "Travel", "Lifestyle"]
+from ..services.constants import CATEGORY_MAP
+CATEGORIES = list(CATEGORY_MAP.keys())
 
 
 @router.post("", response_model=PredictResponse)

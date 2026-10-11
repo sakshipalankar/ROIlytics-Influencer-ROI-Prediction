@@ -1,4 +1,5 @@
-"""Influencer database service — dual-engine with MySQL (primary) and SQLite (automatic fallback)."""
+"""Influencer database service — user auth and scraped influencers dataset.
+"""
 from __future__ import annotations
 
 import os
@@ -7,7 +8,9 @@ import logging
 from pathlib import Path
 from typing import Any, Tuple, List, Optional
 from decimal import Decimal
-from dotenv import load_dotenv
+
+from ..settings import get_settings
+from . import live_db
 
 try:
     import pymysql
@@ -20,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DB_PATH = PROJECT_ROOT / "data" / "influencers.db"
-load_dotenv(PROJECT_ROOT / ".env")
 
 # MySQL Settings from environment
 MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
@@ -29,25 +31,7 @@ MYSQL_USER = os.getenv("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "roilytics_db")
 
-CATEGORY_ER_BENCHMARKS = {
-    "Fitness":   0.055,
-    "Fashion":   0.045,
-    "Tech":      0.038,
-    "Food":      0.052,
-    "Travel":    0.042,
-    "Lifestyle": 0.048,
-    "Beauty":    0.056,
-    "Gaming":    0.040,
-    "Finance":   0.033,
-    "Education": 0.036,
-}
-
-BUDGET_TIER_MAP = {
-    (0,       2_000):    "Nano",
-    (2_000,   15_000):   "Micro",
-    (15_000,  100_000):  "Macro",
-    (100_000, 999_999_999): "Mega",
-}
+from .constants import CATEGORY_ER_BENCHMARKS, BUDGET_TIER_MAP, BRAND_ACCOUNTS
 
 _mysql_failed_logged = False
 
@@ -62,6 +46,9 @@ def get_mysql_conn():
     user = os.getenv("MYSQL_USER", MYSQL_USER)
     password = os.getenv("MYSQL_PASSWORD", MYSQL_PASSWORD)
     database = os.getenv("MYSQL_DATABASE", MYSQL_DATABASE)
+
+    if not password:
+        return None
 
     try:
         conn = pymysql.connect(
@@ -78,7 +65,6 @@ def get_mysql_conn():
         )
         return conn
     except Exception as exc:
-        # Error 1049: Unknown database -> auto-create database if credentials are valid
         if hasattr(exc, "args") and exc.args and exc.args[0] == 1049:
             try:
                 temp_conn = pymysql.connect(
@@ -104,6 +90,7 @@ def get_mysql_conn():
 
 def get_sqlite_conn() -> sqlite3.Connection:
     """Fallback connection to local SQLite database."""
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     return conn
@@ -120,16 +107,10 @@ def _clean_row(row: dict) -> dict:
 
 
 def query_db(sql: str, params: tuple | list = ()) -> Tuple[List[dict], str]:
-    """
-    Execute a read query against MySQL if available, otherwise SQLite.
-    sql should use '?' placeholders (converted to '%s' for MySQL).
-    Returns (list_of_dict_records, engine_name).
-    """
     mysql_conn = get_mysql_conn()
     if mysql_conn is not None:
         try:
             with mysql_conn.cursor() as cur:
-                # Convert SQLite ? placeholders to MySQL %s
                 mysql_sql = sql.replace("?", "%s")
                 cur.execute(mysql_sql, params)
                 rows = cur.fetchall()
@@ -142,7 +123,6 @@ def query_db(sql: str, params: tuple | list = ()) -> Tuple[List[dict], str]:
             except Exception:
                 pass
 
-    # SQLite fallback
     conn = get_sqlite_conn()
     try:
         rows = conn.execute(sql, params).fetchall()
@@ -152,7 +132,6 @@ def query_db(sql: str, params: tuple | list = ()) -> Tuple[List[dict], str]:
 
 
 def query_one(sql: str, params: tuple | list = ()) -> Tuple[Optional[dict], str]:
-    """Execute a query returning a single record."""
     rows, engine = query_db(sql, params)
     return rows[0] if rows else None, engine
 
@@ -166,57 +145,70 @@ def budget_to_tier(budget: float) -> str:
 
 def search_influencers(
     category: str | None = None,
-    follower_tier: str | None = None,
     min_er: float = 0.0,
     min_followers: int = 0,
     max_followers: int = 999_999_999,
-    country: str | None = None,
-    is_verified: bool | None = None,
     goal: str = "awareness",
     budget: float = 5000,
     limit: int = 100,
     offset: int = 0,
     sort_by: str = "fit_score",
+    exclude_brands: bool = True,
+    exclude_suspect_er: bool = True,
 ) -> list[dict[str, Any]]:
-    """Query influencers with filters, compute fit_score, return sorted list."""
+    """Query influencers table, compute fit_score against each influencer's benchmark, sort and paginate in Python."""
+    conn = get_sqlite_conn()
+    
     conditions = ["engagement_rate >= ?", "followers_count >= ?", "followers_count <= ?"]
     params: list[Any] = [min_er, min_followers, max_followers]
+
+    if exclude_brands:
+        conditions.append("(is_brand = 0 OR is_brand IS NULL)")
+
+    if exclude_suspect_er:
+        conditions.append("(er_suspect = 0 OR er_suspect IS NULL)")
 
     if category and category != "All":
         conditions.append("category = ?")
         params.append(category)
-    if follower_tier and follower_tier != "All":
-        conditions.append("follower_tier = ?")
-        params.append(follower_tier)
-    if country and country != "All":
-        conditions.append("country = ?")
-        params.append(country)
-    if is_verified is True:
-        conditions.append("is_verified = 1")
 
     where = "WHERE " + " AND ".join(conditions)
-    # Fetch up to 500 rows so we can score and rank them accurately
-    sql = f"SELECT * FROM influencers {where} LIMIT 500 OFFSET {offset}"
-    rows, _engine = query_db(sql, params)
+    sql = f"SELECT * FROM influencers {where}"
+    try:
+        rows = conn.execute(sql, params).fetchall()
+    finally:
+        conn.close()
 
-    # Score each influencer
-    budget_tier = budget_to_tier(budget)
+    if not rows:
+        return []
+
     results = []
-    for d in rows:
-        d["fit_score"] = compute_fit_score(d, category or "Lifestyle", budget, goal, budget_tier)
+    budget_tier = budget_to_tier(budget)
+
+    for r in rows:
+        d = dict(r)
+        d["fit_score"] = compute_fit_score(
+            d,
+            category=d.get("category") or "Lifestyle",
+            budget=budget,
+            goal=goal,
+            budget_tier=budget_tier,
+        )
+        d["reliable"] = True
+        d["warnings"] = []
         results.append(d)
 
     # Sort
     sort_key_map = {
         "fit_score":       lambda x: x["fit_score"],
-        "roi":             lambda x: x["roi"],
-        "followers":       lambda x: x["followers_count"],
-        "engagement_rate": lambda x: x["engagement_rate"],
+        "roi":             lambda x: (x.get("roi") or 0.0),
+        "followers":       lambda x: (x.get("followers_count") or 0),
+        "engagement_rate": lambda x: (x.get("engagement_rate") or 0.0),
     }
     key_fn = sort_key_map.get(sort_by, sort_key_map["fit_score"])
     results.sort(key=key_fn, reverse=True)
 
-    return results[:limit]
+    return results[offset:offset + limit]
 
 
 def compute_fit_score(
@@ -226,19 +218,13 @@ def compute_fit_score(
     goal: str,
     budget_tier: str,
 ) -> float:
-    """
-    Fit Score (0–100):
-      - Engagement score  35%  (ER vs category benchmark)
-      - Follower tier fit 20%  (budget <-> follower tier alignment)
-      - ROI score         30%  (scaled predicted ROI)
-      - Goal alignment    15%  (ER weight depends on goal)
-    """
-    # Engagement score
-    benchmark = float(CATEGORY_ER_BENCHMARKS.get(category, 0.045))
+    """Compute fit score (0-100) using the influencer's category benchmark."""
+    # When category is None, 'All', or not in benchmarks, use influencer's own category
+    effective_cat = category if (category and category != "All" and category in CATEGORY_ER_BENCHMARKS) else (inf.get("category") or "Lifestyle")
+    benchmark = float(CATEGORY_ER_BENCHMARKS.get(effective_cat, 0.045))
     er = float(inf.get("engagement_rate", 0) or 0.0)
-    er_score = min(er / (benchmark * 2.0), 1.0) * 100.0  # 0–100
+    er_score = min(er / (benchmark * 2.0), 1.0) * 100.0
 
-    # Follower tier fit (budget alignment)
     inf_tier = inf.get("follower_tier", "Micro")
     tier_order = ["Nano", "Micro", "Macro", "Mega"]
     budget_tier_idx = tier_order.index(budget_tier) if budget_tier in tier_order else 1
@@ -246,80 +232,78 @@ def compute_fit_score(
     tier_diff = abs(budget_tier_idx - inf_tier_idx)
     tier_score = float([100, 70, 40, 10][min(tier_diff, 3)])
 
-    # ROI score (0–100, clamped at ROI=5x)
-    roi = float(inf.get("roi", 1.0) or 1.0)
-    roi_score = min(max(roi / 5.0, 0.0), 1.0) * 100.0
+    roi = float(inf.get("roi") if inf.get("roi") is not None else 1.0)
+    roi_score = min(max(roi / 3.0, 0.0), 1.0) * 100.0
 
-    # Goal alignment adjustment
     if goal == "awareness":
-        # Followers matter more -> boost Macro/Mega
         followers = float(inf.get("followers_count", 0) or 0.0)
-        goal_bonus = (followers / 1_000_000.0) * 10.0
+        goal_bonus = min(followers / 100_000.0, 1.0) * 100.0
     elif goal == "engagement":
-        # Pure ER focus
-        goal_bonus = er_score * 0.1
-    else:  # sales / conversion
-        goal_bonus = roi_score * 0.1
+        goal_bonus = er_score
+    else:
+        goal_bonus = roi_score
 
-    raw = (er_score * 0.35) + (tier_score * 0.20) + (roi_score * 0.30) + (goal_bonus * 0.15)
+    raw = (er_score * 0.35) + (tier_score * 0.25) + (roi_score * 0.25) + (goal_bonus * 0.15)
     return round(min(float(raw), 100.0), 1)
 
 
-def get_influencer_by_username(username: str) -> dict | None:
-    row, _ = query_one("SELECT * FROM influencers WHERE username = ?", (username,))
-    return row
-
-
 def get_influencer_by_id(iid: int) -> dict | None:
-    row, _ = query_one("SELECT * FROM influencers WHERE id = ?", (iid,))
-    return row
+    conn = get_sqlite_conn()
+    try:
+        row = conn.execute("SELECT * FROM influencers WHERE id = ?", (iid,)).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_influencer_by_username(username: str) -> dict | None:
+    conn = get_sqlite_conn()
+    try:
+        row = conn.execute("SELECT * FROM influencers WHERE username = ?", (username,)).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
 
 
 def get_dataset_stats() -> dict:
-    total_row, engine = query_one("SELECT COUNT(*) AS total FROM influencers")
-    total = total_row["total"] if total_row else 0
+    conn = get_sqlite_conn()
+    try:
+        total_row = conn.execute("SELECT COUNT(*) AS total FROM influencers WHERE (is_brand = 0 OR is_brand IS NULL) AND (er_suspect = 0 OR er_suspect IS NULL)").fetchone()
+        total = total_row["total"] if total_row else 0
 
-    avg_roi_row, _ = query_one("SELECT AVG(roi) AS avg_roi FROM influencers")
-    avg_roi = avg_roi_row["avg_roi"] if avg_roi_row and avg_roi_row["avg_roi"] is not None else 0.0
+        avg_er_row = conn.execute("SELECT AVG(engagement_rate) AS avg_er FROM influencers WHERE (is_brand = 0 OR is_brand IS NULL) AND (er_suspect = 0 OR er_suspect IS NULL)").fetchone()
+        avg_er = avg_er_row["avg_er"] if avg_er_row and avg_er_row["avg_er"] is not None else 0.0
 
-    avg_er_row, _ = query_one("SELECT AVG(engagement_rate) AS avg_er FROM influencers")
-    avg_er = avg_er_row["avg_er"] if avg_er_row and avg_er_row["avg_er"] is not None else 0.0
+        avg_roi_row = conn.execute("SELECT AVG(roi) AS avg_roi FROM influencers WHERE (is_brand = 0 OR is_brand IS NULL) AND (er_suspect = 0 OR er_suspect IS NULL)").fetchone()
+        avg_roi = avg_roi_row["avg_roi"] if avg_roi_row and avg_roi_row["avg_roi"] is not None else 0.0
 
-    verified_row, _ = query_one("SELECT COUNT(*) AS verified FROM influencers WHERE is_verified=1")
-    verified = verified_row["verified"] if verified_row else 0
+        cat_rows = conn.execute("SELECT DISTINCT category FROM influencers WHERE (is_brand = 0 OR is_brand IS NULL) AND (er_suspect = 0 OR er_suspect IS NULL) ORDER BY category").fetchall()
+        categories = [r["category"] for r in cat_rows if r["category"]]
 
-    cat_rows, _ = query_db("SELECT DISTINCT category FROM influencers ORDER BY category")
-    categories = [r["category"] for r in cat_rows if r.get("category")]
-
-    country_rows, _ = query_db("SELECT DISTINCT country FROM influencers ORDER BY country")
-    countries = [r["country"] for r in country_rows if r.get("country")]
-
-    cat_dist_rows, _ = query_db("SELECT category, COUNT(*) AS cnt FROM influencers GROUP BY category ORDER BY cnt DESC")
-    cat_dist = {r["category"]: r["cnt"] for r in cat_dist_rows if r.get("category")}
-
-    tier_dist_rows, _ = query_db("SELECT follower_tier, COUNT(*) AS cnt FROM influencers GROUP BY follower_tier")
-    tier_dist = {r["follower_tier"]: r["cnt"] for r in tier_dist_rows if r.get("follower_tier")}
+        cat_dist_rows = conn.execute("SELECT category, COUNT(*) AS cnt FROM influencers WHERE (is_brand = 0 OR is_brand IS NULL) AND (er_suspect = 0 OR er_suspect IS NULL) GROUP BY category ORDER BY cnt DESC").fetchall()
+        cat_dist = {r["category"]: r["cnt"] for r in cat_dist_rows if r["category"]}
+    except Exception as e:
+        logger.warning("Error fetching dataset stats: %s", e)
+        total = 0
+        avg_er = 0.0
+        avg_roi = 0.0
+        categories = []
+        cat_dist = {}
+    finally:
+        conn.close()
 
     return {
         "total": total,
-        "avg_roi": round(avg_roi or 0, 3),
+        "avg_roi": round(avg_roi, 4),
         "avg_engagement_rate": round(avg_er or 0, 4),
-        "verified_count": verified,
         "categories": categories,
-        "countries": countries,
         "category_distribution": cat_dist,
-        "tier_distribution": tier_dist,
-        "db_engine": engine,
-        "db_host": MYSQL_HOST if engine == "mysql" else "local",
+        "db_engine": "sqlite",
+        "db_host": "local",
     }
 
 
 def execute_write(sql: str, params: tuple | list = ()) -> Tuple[bool, str]:
-    """
-    Execute an INSERT, UPDATE, or DELETE query.
-    Writes to MySQL if connected, AND also writes to SQLite to guarantee dual-engine sync.
-    Returns (success, primary_engine_name).
-    """
     primary_engine = "sqlite"
     mysql_conn = get_mysql_conn()
     if mysql_conn is not None:
@@ -337,7 +321,6 @@ def execute_write(sql: str, params: tuple | list = ()) -> Tuple[bool, str]:
             except Exception:
                 pass
 
-    # Dual-sync to local SQLite database
     s_conn = get_sqlite_conn()
     try:
         s_conn.execute(sql, params)
@@ -351,8 +334,6 @@ def execute_write(sql: str, params: tuple | list = ()) -> Tuple[bool, str]:
 
 
 def init_users_table():
-    """Ensure users table exists in SQLite and MySQL."""
-    # SQLite
     s_conn = get_sqlite_conn()
     try:
         s_conn.execute("""
@@ -374,7 +355,6 @@ def init_users_table():
     finally:
         s_conn.close()
 
-    # MySQL if accessible
     m_conn = get_mysql_conn()
     if m_conn is not None:
         try:
@@ -401,7 +381,6 @@ def init_users_table():
             except Exception:
                 pass
 
-# Auto-initialize users table on load
 init_users_table()
 
 
@@ -413,7 +392,6 @@ def create_user(
     provider: str = "email",
     role: str = "Campaign Manager",
 ) -> dict:
-    """Create new user in the database (MySQL and SQLite)."""
     existing = get_user_by_email(email)
     if existing:
         return existing
@@ -467,3 +445,139 @@ def update_user_profile(email: str, username: str, role: str | None = None, avat
     sql = f"UPDATE users SET {', '.join(fields)} WHERE LOWER(email) = LOWER(?)"
     execute_write(sql, params)
     return get_user_by_email(email)
+
+
+def ensure_influencers_db() -> int:
+    """Ensure data/influencers.db exists and has records; rebuilds from data/influencers_clean.csv if missing or empty.
+    
+    Returns the count of influencers in the database.
+    """
+    import csv
+
+    csv_path = PROJECT_ROOT / "data" / "influencers_clean.csv"
+    needs_rebuild = False
+
+    if not DB_PATH.exists():
+        needs_rebuild = True
+    else:
+        try:
+            conn = sqlite3.connect(str(DB_PATH))
+            cur = conn.cursor()
+            cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='influencers'")
+            if cur.fetchone()[0] == 0:
+                needs_rebuild = True
+            else:
+                cur.execute("SELECT count(*) FROM influencers")
+                c = cur.fetchone()[0]
+                if c == 0:
+                    needs_rebuild = True
+                else:
+                    conn.close()
+                    return c
+            conn.close()
+        except Exception:
+            needs_rebuild = True
+
+    if not needs_rebuild:
+        return 0
+
+    if not csv_path.exists():
+        logger.error(f"Cannot rebuild influencers.db: {csv_path} does not exist!")
+        return 0
+
+    logger.info(f"Rebuilding {DB_PATH.name} automatically from {csv_path.name}...")
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(DB_PATH))
+    try:
+        with conn:
+            conn.execute("DROP TABLE IF EXISTS influencers")
+            conn.execute("""
+                CREATE TABLE influencers (
+                    id                  INTEGER PRIMARY KEY,
+                    username            TEXT NOT NULL,
+                    full_name           TEXT,
+                    category            TEXT,
+                    sub_category        TEXT,
+                    biography           TEXT,
+                    followers_count     INTEGER,
+                    following_count     INTEGER,
+                    media_count         INTEGER,
+                    avg_likes           REAL,
+                    avg_comments        REAL,
+                    avg_video_views     INTEGER DEFAULT 0,
+                    engagement_rate     REAL,
+                    posting_frequency   REAL,
+                    estimated_reach     INTEGER,
+                    is_verified         INTEGER DEFAULT 0,
+                    country             TEXT DEFAULT 'IN',
+                    follower_tier       TEXT,
+                    audience_female_pct REAL,
+                    audience_male_pct   REAL,
+                    audience_age_18_24  REAL,
+                    audience_age_25_34  REAL,
+                    audience_age_35_44  REAL,
+                    posts_used          INTEGER DEFAULT 0,
+                    spend               REAL,
+                    revenue             REAL,
+                    roi                 REAL,
+                    roi_source          TEXT DEFAULT 'model_estimate',
+                    is_brand            INTEGER DEFAULT 0,
+                    er_suspect          INTEGER DEFAULT 0,
+                    profile_url         TEXT,
+                    profile_screenshot  TEXT,
+                    collected_at        TEXT
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_inf_category ON influencers(category)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_inf_tier ON influencers(follower_tier)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_inf_username ON influencers(username)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_inf_is_brand ON influencers(is_brand)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_inf_er_suspect ON influencers(er_suspect)")
+
+            records = []
+            with open(csv_path, mode="r", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    # Clean/cast types
+                    cleaned_row = {}
+                    for k, v in row.items():
+                        if k in ("id", "followers_count", "following_count", "media_count",
+                                 "avg_video_views", "estimated_reach", "is_verified",
+                                 "posts_used", "is_brand", "er_suspect"):
+                            cleaned_row[k] = int(v) if v is not None and str(v).strip() != "" else 0
+                        elif k in ("avg_likes", "avg_comments", "engagement_rate",
+                                   "posting_frequency", "audience_female_pct", "audience_male_pct",
+                                   "audience_age_18_24", "audience_age_25_34", "audience_age_35_44",
+                                   "spend", "revenue", "roi"):
+                            cleaned_row[k] = float(v) if v is not None and str(v).strip() != "" else 0.0
+                        else:
+                            cleaned_row[k] = v if v is not None else ""
+                    records.append(cleaned_row)
+
+            if records:
+                cols = list(records[0].keys())
+                placeholders = ":" + ", :".join(cols)
+                sql = f"INSERT INTO influencers ({', '.join(cols)}) VALUES ({placeholders})"
+                conn.executemany(sql, records)
+
+            # Ensure users table is also present in SQLite
+            conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              username TEXT NOT NULL UNIQUE,
+              email TEXT NOT NULL UNIQUE,
+              password_hash TEXT,
+              avatar_url TEXT,
+              provider TEXT NOT NULL DEFAULT 'email',
+              role TEXT NOT NULL DEFAULT 'Campaign Manager',
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+
+        count = len(records)
+        logger.info(f"✅ Successfully rebuilt {DB_PATH.name} with {count} influencers from CSV")
+        return count
+    finally:
+        conn.close()
+

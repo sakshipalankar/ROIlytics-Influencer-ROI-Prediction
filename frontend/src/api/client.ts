@@ -2,7 +2,7 @@ import axios from 'axios';
 import type {
   PredictRequest, PredictResponse,
   SimulateResponse, AnalyticsOverview, ModelResultsResponse,
-  InstagramProfile, BrandProfile, DiscoverResponse,
+  BrandProfile, DiscoverResponse,
   DatasetStats, InfluencerCard,
 } from '../types';
 
@@ -48,14 +48,6 @@ export const getModelResults = async (): Promise<ModelResultsResponse> => {
   return data;
 };
 
-// ─── Instagram ──────────────────────────────────────────────────────────────
-export const fetchInstagramProfile = async (
-  username: string, access_token: string
-): Promise<InstagramProfile> => {
-  const { data } = await api.post<InstagramProfile>('/instagram/fetch', { username, access_token });
-  return data;
-};
-
 // ─── Discovery ──────────────────────────────────────────────────────────────
 export const discoverInfluencers = async (brand: BrandProfile): Promise<DiscoverResponse> => {
   const { data } = await api.post<DiscoverResponse>('/discover', brand);
@@ -80,6 +72,20 @@ export const compareInfluencers = async (
     budget,
     goal,
   });
+  return data;
+};
+
+export const getTopInfluencers = async (
+  category?: string, budget: number = 5000, goal: string = 'awareness', limit: number = 10
+): Promise<{ top_influencers: InfluencerCard[]; category: string; budget: number; goal: string; count: number }> => {
+  const { data } = await api.get('/discover/top', {
+    params: { category, budget, goal, limit }
+  });
+  return data;
+};
+
+export const reloadDataset = async (): Promise<any> => {
+  const { data } = await api.post('/discover/reload');
   return data;
 };
 
