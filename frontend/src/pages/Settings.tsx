@@ -709,12 +709,12 @@ const Settings: React.FC = () => {
               <div className="settings-api-info">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                   <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>
-                    Meta Instagram Graph API
+                    Instagram Scraped Dataset
                   </span>
-                  <span className="badge badge-indigo">Demo Fallback Ready</span>
+                  <span className="badge badge-emerald">Active Dataset</span>
                 </div>
                 <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
-                  Configured for Business Discovery API. Add your <code>IG_ACCESS_TOKEN</code> in <code>.env</code> for custom live scraping.
+                  Data source: Scraped Instagram dataset with verified profiles, engagement analytics, and model-estimated ROI.
                 </p>
               </div>
             </div>

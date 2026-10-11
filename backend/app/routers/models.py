@@ -24,7 +24,7 @@ async def get_model_results() -> ModelResultsResponse:
             best_model=raw.get("best_model", "Random Forest"),
             models=models,
             feature_importance=raw.get("feature_importance", []),
-            training_samples=raw.get("training_samples", 0),
+            training_samples=raw.get("training_samples") or 0,
         )
     except Exception as exc:
         logger.exception("Model results failed")

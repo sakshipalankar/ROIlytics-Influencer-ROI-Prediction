@@ -1,7 +1,7 @@
 import React from 'react';
 import type { InfluencerCard } from '../../types';
 import { useAppStore } from '../../store/useAppStore';
-import { Bookmark, BookmarkCheck, ChevronRight, MapPin, CheckCircle } from 'lucide-react';
+import { Bookmark, BookmarkCheck, ChevronRight, CheckCircle, ExternalLink } from 'lucide-react';
 
 const TIER_COLORS: Record<string, string> = {
   Nano:  '#10b981',
@@ -30,14 +30,16 @@ interface Props {
 
 const InfluencerCardComponent: React.FC<Props> = ({ influencer: inf, onViewDetail }) => {
   const { shortlist, addToShortlist, removeFromShortlist } = useAppStore();
-  const isInShortlist = shortlist.some(s => s.id === inf.id);
-  const tierColor = TIER_COLORS[inf.follower_tier] ?? '#6366f1';
+  const isInShortlist = inf.id != null && shortlist.some(s => s.id === inf.id);
+  const tierColor = (inf.follower_tier ? TIER_COLORS[inf.follower_tier] : undefined) ?? '#6366f1';
   const fitColor  = fitBadgeColor(inf.fit_score);
 
   const handleShortlist = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isInShortlist) removeFromShortlist(inf.id);
-    else addToShortlist(inf);
+    if (inf.id != null) {
+      if (isInShortlist) removeFromShortlist(inf.id);
+      else addToShortlist(inf);
+    }
   };
 
   return (
@@ -65,11 +67,22 @@ const InfluencerCardComponent: React.FC<Props> = ({ influencer: inf, onViewDetai
             {inf.is_verified && (
               <CheckCircle size={13} style={{ color: '#38bdf8', flexShrink: 0 }} />
             )}
+            <a
+              href={inf.profile_url || `https://www.instagram.com/${inf.username}/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', marginLeft: 4 }}
+              title="Open Instagram Profile in new tab"
+            >
+              <ExternalLink size={13} />
+            </a>
           </div>
           <div className="inf-fullname">{inf.full_name}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-            <MapPin size={11} style={{ color: 'var(--text-muted)' }} />
-            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{inf.country}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              Data source: Scraped dataset
+            </span>
           </div>
         </div>
         <button
@@ -132,13 +145,19 @@ const InfluencerCardComponent: React.FC<Props> = ({ influencer: inf, onViewDetai
         </div>
         <div className="inf-score-item">
           <div className="inf-roi-badge">
-            <span style={{ fontSize: 18, fontWeight: 900, color: inf.roi >= 1.5 ? '#10b981' : inf.roi >= 0.5 ? '#f59e0b' : '#f43f5e' }}>
-              {inf.roi.toFixed(2)}x
+            <span style={{ fontSize: 18, fontWeight: 900, color: inf.roi === null ? '#94a3b8' : (inf.roi >= 1.5 ? '#10b981' : inf.roi >= 0.5 ? '#f59e0b' : '#f43f5e') }}>
+              {inf.roi === null ? 'n/a' : `${inf.roi.toFixed(2)}x`}
             </span>
           </div>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3, textAlign: 'center' }}>Pred. ROI</div>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3, textAlign: 'center' }} title="Model-estimated ROI via scikit-learn">Model-estimated ROI ℹ️</div>
         </div>
       </div>
+
+      {inf.note && (
+        <div style={{ fontSize: 10, color: '#f59e0b', padding: '4px 12px', background: '#f59e0b15', marginTop: 4, borderRadius: 4 }}>
+          {inf.note}
+        </div>
+      )}
 
       {/* Footer CTA */}
       <div className="inf-card-footer">

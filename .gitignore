@@ -39,3 +39,16 @@ desktop.ini
 *.log
 *.tmp
 
+# Virtual environments
+.venv312/
+backend/.venv312/
+
+# Local databases (encrypted tokens and cached profiles)
+*.db
+live_cache.db
+data/live_cache.db*
+data/influencers.db
+instagram_chromium_profile/
+
+# Test cache
+.pytest_cache/
